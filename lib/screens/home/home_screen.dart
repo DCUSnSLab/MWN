@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import '../../services/fcm_service.dart';
 import '../../models/weather.dart';
 import '../auth/login_screen.dart';
 
@@ -17,6 +18,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   final LocationService _locationService = LocationService();
+  final FCMService _fcmService = FCMService();
   
   WeatherData? _currentWeather;
   List<WeatherData> _forecastWeather = [];
@@ -46,23 +48,25 @@ class _HomeScreenState extends State<HomeScreen> {
       // 한국 좌표 검증 및 보정
       final correctedPosition = _locationService.validateAndCorrectKoreanLocation(position);
       
+      if (correctedPosition == null) {
+        throw Exception('유효하지 않은 위치 정보입니다. 한국 내 위치에서 사용해주세요.');
+      }
+      
       setState(() {
         _currentPosition = correctedPosition;
       });
 
       // 좌표값 로그 출력
       print('원본 좌표 - 위도: ${position.latitude}, 경도: ${position.longitude}');
-      if (correctedPosition != null) {
-        print('보정된 좌표 - 위도: ${correctedPosition.latitude}, 경도: ${correctedPosition.longitude}');
-      }
+      print('보정된 좌표 - 위도: ${correctedPosition.latitude}, 경도: ${correctedPosition.longitude}');
 
       // 현재 날씨 조회
       final weatherRequest = WeatherRequest(
-        latitude: correctedPosition?.latitude ?? 35.915451,
-        longitude: correctedPosition?.longitude ?? 128.819720,
+        latitude: correctedPosition.latitude,
+        longitude: correctedPosition.longitude,
         locationName: _locationService.formatLocation(
-          correctedPosition?.latitude ?? 35.915451,
-          correctedPosition?.longitude ?? 128.819720,
+          correctedPosition.latitude,
+          correctedPosition.longitude,
         ),
       );
 
@@ -93,6 +97,34 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
+    }
+  }
+
+  Future<void> _testFCMNotification() async {
+    try {
+      final success = await _fcmService.requestTestNotification();
+      
+      if (mounted) {
+        final message = success 
+            ? 'FCM 테스트 알림이 전송되었습니다!'
+            : 'FCM 테스트 알림 전송에 실패했습니다.';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('FCM 사용 불가: Firebase 설정이 필요합니다'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
@@ -257,6 +289,11 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _getCurrentLocationAndWeather,
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: _testFCMNotification,
+            tooltip: 'FCM 테스트',
           ),
           PopupMenuButton<String>(
             onSelected: (value) {

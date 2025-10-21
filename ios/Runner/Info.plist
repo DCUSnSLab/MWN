@@ -49,5 +49,9 @@
 	<string>날씨 정보를 제공하기 위해 현재 위치가 필요합니다.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>날씨 정보를 제공하기 위해 현재 위치가 필요합니다.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

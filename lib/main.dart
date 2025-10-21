@@ -1,10 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'services/fcm_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    // Firebase 초기화 (선택적)
+    await Firebase.initializeApp();
+    
+    // FCM 백그라운드 메시지 핸들러 등록
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    print('Firebase 초기화 성공');
+  } catch (e) {
+    print('Firebase 초기화 실패: $e');
+    print('Firebase 없이 앱을 실행합니다.');
+  }
+  
   runApp(const MyApp());
 }
 
@@ -62,9 +79,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    // 앱 시작시 인증 상태 확인
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AuthProvider>(context, listen: false).initializeAuth();
+    // 앱 시작시 인증 상태 확인 및 FCM 초기화
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 인증 상태 초기화
+      await Provider.of<AuthProvider>(context, listen: false).initializeAuth();
+      
+      // FCM 초기화를 약간 지연 (Firebase가 있는 경우에만)
+      try {
+        await Future.delayed(const Duration(milliseconds: 1000));
+        await FCMService().initialize();
+        print('FCM 서비스 초기화 성공');
+      } catch (e) {
+        print('FCM 서비스 초기화 실패: $e');
+      }
     });
   }
 

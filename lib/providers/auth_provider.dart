@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/fcm_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
+  FCMService? _fcmService;
   
   User? _currentUser;
   bool _isLoading = false;
@@ -67,6 +70,15 @@ class AuthProvider with ChangeNotifier {
 
       final response = await _apiService.register(request);
       _currentUser = response.user;
+      
+      // 회원가입 성공 시 FCM 토큰 등록
+      try {
+        _fcmService ??= FCMService();
+        await _fcmService!.registerTokenAfterLogin();
+      } catch (e) {
+        print('FCM 토큰 등록 실패: $e');
+      }
+      
       _setLoading(false);
       return true;
     } catch (e) {
@@ -92,6 +104,15 @@ class AuthProvider with ChangeNotifier {
 
       final response = await _apiService.login(request);
       _currentUser = response.user;
+      
+      // 로그인 성공 시 FCM 토큰 등록
+      try {
+        _fcmService ??= FCMService();
+        await _fcmService!.registerTokenAfterLogin();
+      } catch (e) {
+        print('FCM 토큰 등록 실패: $e');
+      }
+      
       _setLoading(false);
       return true;
     } catch (e) {
@@ -106,6 +127,13 @@ class AuthProvider with ChangeNotifier {
     _setLoading(true);
     try {
       await _apiService.logout();
+      
+      // 저장된 자격 증명도 삭제
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('saved_email');
+      await prefs.remove('saved_password');
+      await prefs.setBool('auto_login', false);
+      
     } catch (e) {
       print('Logout error: $e');
     } finally {

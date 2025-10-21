@@ -7,7 +7,7 @@ import '../models/api_error.dart';
 import '../utils/coordinate_converter.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.50.175:8002';
+  static const String baseUrl = 'http://203.250.35.243:32121';
   
   // 싱글톤 패턴
   static final ApiService _instance = ApiService._internal();
@@ -199,6 +199,39 @@ class ApiService {
 
   // 로그인 상태 확인
   bool get isLoggedIn => _accessToken != null;
+
+  // FCM 토큰 등록
+  Future<void> registerFCMToken(String token, Map<String, dynamic> deviceInfo) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/fcm/register'),
+      headers: _authHeaders,
+      body: json.encode({
+        'token': token,
+        'device_info': deviceInfo,
+        'subscribe_topics': ['weather_alerts'], // 기본 주제 구독
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // FCM 테스트 알림 전송
+  Future<void> sendTestFCMNotification() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/fcm/test'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
 
   // 토큰 자동 갱신을 포함한 인증된 요청
   Future<http.Response> _authenticatedRequest(

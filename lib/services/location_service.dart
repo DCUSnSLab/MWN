@@ -53,21 +53,7 @@ class LocationService {
       return position;
     } catch (e) {
       print('위치 가져오기 실패: $e');
-      // 시뮬레이터나 테스트용으로 임시 위치 반환
-      if (e.toString().contains('location service') || e.toString().contains('permission')) {
-        return Position(
-          latitude: 35.915451,
-          longitude: 128.819720,
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          heading: 0,
-          speed: 0,
-          speedAccuracy: 0,
-          headingAccuracy: 0,
-          altitudeAccuracy: 0,
-        );
-      }
+      // 위치 권한 오류 시 null 반환하여 상위에서 처리하도록 함
       return null;
     }
   }
@@ -112,21 +98,10 @@ class LocationService {
       print('경도 음수값 보정: ${position.longitude} → $lon');
     }
     
-    // 한국 범위 밖인 경우 임시 위치 사용
+    // 한국 범위 밖인 경우 null 반환 (상위에서 처리)
     if (lat < 33.0 || lat > 38.5 || lon < 124.0 || lon > 132.0) {
-      print('한국 범위 밖 좌표 감지. 임시 위치 사용');
-      return Position(
-        latitude: 35.915451,
-        longitude: 128.819720,
-        timestamp: DateTime.now(),
-        accuracy: position.accuracy,
-        altitude: position.altitude,
-        heading: position.heading,
-        speed: position.speed,
-        speedAccuracy: position.speedAccuracy,
-        headingAccuracy: position.headingAccuracy,
-        altitudeAccuracy: position.altitudeAccuracy,
-      );
+      print('한국 범위 밖 좌표 감지: 위도 $lat, 경도 $lon');
+      return null;
     }
     
     // 좌표가 보정된 경우 새 Position 객체 반환

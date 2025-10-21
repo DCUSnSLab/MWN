@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "758520453995",
+    "project_id": "mwn-fb",
+    "storage_bucket": "mwn-fb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:758520453995:android:9be1c6b286f449acb78a2e",
+        "android_client_info": {
+          "package_name": "snslab.cu.ac.kr.mwn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLNe_oHJqHrXVuzaqO4oO3kVCwtPA0edc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

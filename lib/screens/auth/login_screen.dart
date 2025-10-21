@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
 import '../home/home_screen.dart';
@@ -16,12 +17,47 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _autoLogin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedCredentials();
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSavedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('saved_email');
+    final savedPassword = prefs.getString('saved_password');
+    final autoLogin = prefs.getBool('auto_login') ?? false;
+
+    if (savedEmail != null && savedPassword != null && autoLogin) {
+      setState(() {
+        _emailController.text = savedEmail;
+        _passwordController.text = savedPassword;
+        _autoLogin = autoLogin;
+      });
+    }
+  }
+
+  Future<void> _saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_autoLogin) {
+      await prefs.setString('saved_email', _emailController.text.trim());
+      await prefs.setString('saved_password', _passwordController.text);
+      await prefs.setBool('auto_login', true);
+    } else {
+      await prefs.remove('saved_email');
+      await prefs.remove('saved_password');
+      await prefs.setBool('auto_login', false);
+    }
   }
 
   Future<void> _login() async {
@@ -33,10 +69,15 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+      if (success) {
+        // 로그인 성공 시 자격 증명 저장
+        await _saveCredentials();
+        
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
       }
     }
   }
@@ -122,7 +163,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+
+                // 자동 로그인 체크박스
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _autoLogin,
+                      onChanged: (value) {
+                        setState(() {
+                          _autoLogin = value ?? false;
+                        });
+                      },
+                    ),
+                    const Text('자동 로그인'),
+                    const Spacer(),
+                  ],
+                ),
+                const SizedBox(height: 8),
 
                 // 로그인 버튼
                 Consumer<AuthProvider>(
