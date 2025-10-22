@@ -1,5 +1,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 import 'api_service.dart';
 
@@ -10,6 +11,7 @@ class FCMService {
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final ApiService _apiService = ApiService();
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
@@ -17,6 +19,9 @@ class FCMService {
   // FCM 초기화
   Future<void> initialize() async {
     try {
+      // 로컬 알림 초기화
+      await _initializeLocalNotifications();
+      
       // 알림 권한 요청
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
@@ -158,6 +163,36 @@ class FCMService {
     }
   }
 
+  // 로컬 알림 초기화
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    
+    const DarwinInitializationSettings initializationSettingsIOS =
+        DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
+    
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
+    
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+  }
+
+  // 알림 탭 처리
+  void _onNotificationTapped(NotificationResponse notificationResponse) {
+    print('알림 탭됨: ${notificationResponse.payload}');
+    // TODO: 특정 화면으로 이동하거나 액션 수행
+  }
+
   // 포그라운드 메시지 처리
   void _handleForegroundMessage(RemoteMessage message) {
     print('포그라운드 FCM 메시지 수신:');
@@ -165,8 +200,37 @@ class FCMService {
     print('내용: ${message.notification?.body}');
     print('데이터: ${message.data}');
     
-    // TODO: 포그라운드에서 알림 표시 (선택사항)
-    // 앱이 실행 중일 때 알림을 어떻게 처리할지 결정
+    // 포그라운드에서 로컬 알림 표시
+    _showLocalNotification(message);
+  }
+
+  // 로컬 알림 표시
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'weather_alerts',
+      'Weather Alerts',
+      channelDescription: '날씨 알림',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+    
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails();
+    
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+    
+    await _localNotifications.show(
+      message.hashCode,
+      message.notification?.title ?? '날씨 알림',
+      message.notification?.body ?? '새로운 날씨 정보가 있습니다',
+      platformChannelSpecifics,
+      payload: message.data.toString(),
+    );
   }
 
   // 백그라운드 메시지 클릭 처리

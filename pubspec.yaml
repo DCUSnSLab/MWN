@@ -54,6 +54,9 @@ dependencies:
   # FCM 푸시 알림 (안정적인 버전)
   firebase_messaging: 14.6.0
   firebase_core: 2.15.0
+  
+  # Local notifications
+  flutter_local_notifications: ^17.2.2
 
 dev_dependencies:
   flutter_test:
