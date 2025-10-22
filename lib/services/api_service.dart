@@ -233,6 +233,93 @@ class ApiService {
     }
   }
 
+  // ===== 관리자 전용 API =====
+
+  // 전체 사용자 목록 조회 (관리자)
+  Future<List<User>> getAllUsers() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 관리자용 FCM 브로드캐스트 전송
+  Future<void> sendAdminFCMBroadcast({
+    required String title,
+    required String body,
+    String? topic,
+    List<int>? userIds,
+    Map<String, dynamic>? data,
+  }) async {
+    final requestBody = <String, dynamic>{
+      'title': title,
+      'body': body,
+    };
+
+    if (topic != null) {
+      requestBody['topic'] = topic;
+    }
+    if (userIds != null && userIds.isNotEmpty) {
+      requestBody['user_ids'] = userIds;
+    }
+    if (data != null) {
+      requestBody['data'] = data;
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/fcm/send'),
+      headers: _authHeaders,
+      body: json.encode(requestBody),
+    );
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 사용자 생성 (관리자)
+  Future<User> createUser({
+    required String name,
+    required String email,
+    required String password,
+    String? phone,
+    String? location,
+    String role = 'user',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/users'),
+      headers: _authHeaders,
+      body: json.encode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'location': location,
+        'role': role,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return User.fromJson(data['user']);
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // 토큰 자동 갱신을 포함한 인증된 요청
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,

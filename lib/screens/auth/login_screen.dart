@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
-import '../home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,11 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
         // 로그인 성공 시 자격 증명 저장
         await _saveCredentials();
         
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
+        // main.dart의 AuthWrapper에서 자동으로 적절한 화면으로 이동됨
+        // 여기서는 별도의 네비게이션이 필요 없음
       }
     }
   }

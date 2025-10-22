@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/admin/admin_dashboard.dart';
 import 'services/fcm_service.dart';
 
 void main() async {
@@ -129,7 +130,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         // 로그인 상태에 따라 화면 분기
         if (authProvider.isLoggedIn) {
-          return const HomeScreen();
+          // 관리자인지 확인
+          if (authProvider.currentUser?.role == 'admin') {
+            return const AdminDashboard();
+          } else {
+            return const HomeScreen();
+          }
         } else {
           return const LoginScreen();
         }

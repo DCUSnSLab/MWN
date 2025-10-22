@@ -7,6 +7,7 @@ import '../../services/location_service.dart';
 import '../../services/fcm_service.dart';
 import '../../models/weather.dart';
 import '../auth/login_screen.dart';
+import '../admin/admin_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -98,6 +99,12 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     }
+  }
+
+  void _goToAdminDashboard() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const AdminDashboard()),
+    );
   }
 
   Future<void> _testFCMNotification() async {
@@ -299,14 +306,38 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelected: (value) {
               if (value == 'logout') {
                 _logout();
+              } else if (value == 'admin') {
+                _goToAdminDashboard();
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'logout',
-                child: Text('로그아웃'),
-              ),
-            ],
+            itemBuilder: (context) {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final isAdmin = authProvider.currentUser?.role == 'admin';
+              
+              return [
+                if (isAdmin)
+                  const PopupMenuItem(
+                    value: 'admin',
+                    child: Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings, color: Colors.purple),
+                        SizedBox(width: 8),
+                        Text('관리자 모드'),
+                      ],
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('로그아웃'),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),

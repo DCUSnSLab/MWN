@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../home/home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -44,10 +43,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
       );
 
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+      if (success) {
+        // main.dart의 AuthWrapper에서 자동으로 적절한 화면으로 이동됨
+        // 여기서는 별도의 네비게이션이 필요 없음
       }
     }
   }

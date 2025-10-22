@@ -9,6 +9,10 @@ class User {
   final String email;
   final String? phone;
   final String? location;
+  @JsonKey(defaultValue: 'user')
+  final String role;
+  @JsonKey(name: 'fcm_token')
+  final String? fcmToken;
   @JsonKey(name: 'is_active')
   final bool isActive;
   @JsonKey(name: 'email_verified')
@@ -26,6 +30,8 @@ class User {
     required this.email,
     this.phone,
     this.location,
+    required this.role,
+    this.fcmToken,
     required this.isActive,
     required this.emailVerified,
     this.lastLogin,
