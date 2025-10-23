@@ -12,7 +12,7 @@ User _$UserFromJson(Map<String, dynamic> json) => User(
   email: json['email'] as String,
   phone: json['phone'] as String?,
   location: json['location'] as String?,
-  role: json['role'] as String,
+  role: json['role'] as String? ?? 'user',
   fcmToken: json['fcm_token'] as String?,
   isActive: json['is_active'] as bool,
   emailVerified: json['email_verified'] as bool,

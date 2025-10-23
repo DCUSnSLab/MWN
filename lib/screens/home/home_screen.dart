@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
-import '../../services/location_service.dart';
-import '../../services/fcm_service.dart';
-import '../../models/weather.dart';
+import '../../providers/market_provider.dart';
+import '../../widgets/empty_watchlist_widget.dart';
+import '../../widgets/market_weather_widget.dart';
 import '../auth/login_screen.dart';
 import '../admin/admin_dashboard.dart';
 
@@ -17,78 +15,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final ApiService _apiService = ApiService();
-  final LocationService _locationService = LocationService();
-  final FCMService _fcmService = FCMService();
-  
-  WeatherData? _currentWeather;
-  List<WeatherData> _forecastWeather = [];
-  Position? _currentPosition;
-  bool _isLoadingWeather = false;
-  String? _weatherError;
-
   @override
   void initState() {
     super.initState();
-    _getCurrentLocationAndWeather();
+    _loadMarketData();
   }
 
-  Future<void> _getCurrentLocationAndWeather() async {
-    setState(() {
-      _isLoadingWeather = true;
-      _weatherError = null;
-    });
-
-    try {
-      // 현재 위치 가져오기
-      final position = await _locationService.getCurrentPosition();
-      if (position == null) {
-        throw Exception('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
-      }
-
-      // 한국 좌표 검증 및 보정
-      final correctedPosition = _locationService.validateAndCorrectKoreanLocation(position);
-      
-      if (correctedPosition == null) {
-        throw Exception('유효하지 않은 위치 정보입니다. 한국 내 위치에서 사용해주세요.');
-      }
-      
-      setState(() {
-        _currentPosition = correctedPosition;
-      });
-
-      // 좌표값 로그 출력
-      print('원본 좌표 - 위도: ${position.latitude}, 경도: ${position.longitude}');
-      print('보정된 좌표 - 위도: ${correctedPosition.latitude}, 경도: ${correctedPosition.longitude}');
-
-      // 현재 날씨 조회
-      final weatherRequest = WeatherRequest(
-        latitude: correctedPosition.latitude,
-        longitude: correctedPosition.longitude,
-        locationName: _locationService.formatLocation(
-          correctedPosition.latitude,
-          correctedPosition.longitude,
-        ),
-      );
-
-      final currentWeather = await _apiService.getCurrentWeather(weatherRequest);
-      final forecastWeather = await _apiService.getForecastWeather(weatherRequest);
-
-      setState(() {
-        _currentWeather = currentWeather;
-        _forecastWeather = forecastWeather;
-      });
-
-    } catch (e) {
-      setState(() {
-        _weatherError = e.toString();
-      });
-    } finally {
-      setState(() {
-        _isLoadingWeather = false;
-      });
-    }
+  Future<void> _loadMarketData() async {
+    final marketProvider = context.read<MarketProvider>();
+    await marketProvider.loadWatchlist();
   }
+
 
   Future<void> _logout() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -107,185 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _testFCMNotification() async {
-    try {
-      final success = await _fcmService.requestTestNotification();
-      
-      if (mounted) {
-        final message = success 
-            ? 'FCM 테스트 알림이 전송되었습니다!'
-            : 'FCM 테스트 알림 전송에 실패했습니다.';
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: success ? Colors.green : Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('FCM 사용 불가: Firebase 설정이 필요합니다'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
 
-  Widget _buildWeatherCard() {
-    if (_isLoadingWeather) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
 
-    if (_weatherError != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              Icon(
-                Icons.error,
-                color: Colors.red,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                '날씨 정보를 가져올 수 없습니다',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _weatherError!,
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _getCurrentLocationAndWeather,
-                child: const Text('다시 시도'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
-    if (_currentWeather == null) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Text('날씨 정보가 없습니다'),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on,
-                  color: Colors.grey.shade600,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    _currentWeather!.locationName ?? '알 수 없는 위치',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  _getWeatherIcon(_currentWeather!.sky),
-                  size: 64,
-                  color: Theme.of(context).primaryColor,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_currentWeather!.temp?.toStringAsFixed(1) ?? '--'}°C',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _currentWeather!.skyCondition,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildWeatherDetail('습도', '${_currentWeather!.humidity?.toStringAsFixed(0) ?? '--'}%'),
-                _buildWeatherDetail('풍속', '${_currentWeather!.windSpeed?.toStringAsFixed(1) ?? '--'}m/s'),
-                _buildWeatherDetail('강수량', '${_currentWeather!.rain1h?.toStringAsFixed(1) ?? '0'}mm'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWeatherDetail(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  IconData _getWeatherIcon(String? sky) {
-    switch (sky) {
-      case '1':
-        return Icons.wb_sunny;
-      case '3':
-        return Icons.cloud_queue;
-      case '4':
-        return Icons.cloud;
-      default:
-        return Icons.help_outline;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,12 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _getCurrentLocationAndWeather,
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: _testFCMNotification,
-            tooltip: 'FCM 테스트',
+            onPressed: _loadMarketData,
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -342,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _getCurrentLocationAndWeather,
+        onRefresh: _loadMarketData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16.0),
@@ -390,67 +146,87 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 현재 날씨
+              // 관심 시장 날씨
               Text(
-                '현재 날씨',
+                '관심 시장 날씨',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-              _buildWeatherCard(),
+              Consumer<MarketProvider>(
+                builder: (context, marketProvider, child) {
+                  if (marketProvider.isLoading) {
+                    return const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (marketProvider.error != null) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.error,
+                              color: Colors.red,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '오류가 발생했습니다',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              marketProvider.error!,
+                              style: Theme.of(context).textTheme.bodySmall,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () {
+                                marketProvider.clearError();
+                                _loadMarketData();
+                              },
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (!marketProvider.hasWatchedMarkets) {
+                    return const EmptyWatchlistWidget();
+                  }
+
+                  if (marketProvider.closestMarket != null) {
+                    return MarketWeatherWidget(
+                      market: marketProvider.closestMarket!,
+                      weather: marketProvider.closestMarketWeather,
+                      onRefresh: () {
+                        marketProvider.updateClosestMarketWeather();
+                      },
+                    );
+                  }
+
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Text('날씨 정보를 가져올 수 없습니다'),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 24),
 
-              // 예보 (간단히)
-              if (_forecastWeather.isNotEmpty) ...[
-                Text(
-                  '시간별 예보',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 120,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _forecastWeather.length.clamp(0, 6),
-                    itemBuilder: (context, index) {
-                      final forecast = _forecastWeather[index];
-                      return Container(
-                        width: 80,
-                        margin: const EdgeInsets.only(right: 8),
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  forecast.fcstTime ?? '--',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Icon(
-                                  _getWeatherIcon(forecast.sky),
-                                  size: 24,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${forecast.temp?.toStringAsFixed(0) ?? '--'}°',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
             ],
           ),
         ),

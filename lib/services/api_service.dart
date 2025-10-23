@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../models/weather.dart';
 import '../models/api_error.dart';
-import '../utils/coordinate_converter.dart';
+import '../models/market.dart';
 
 class ApiService {
   static const String baseUrl = 'http://203.250.35.243:32462';
@@ -314,6 +314,80 @@ class ApiService {
       final Map<String, dynamic> data = json.decode(response.body);
       return User.fromJson(data['user']);
     } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // ===== 시장 관련 API =====
+
+  // 시장 검색
+  Future<List<Market>> searchMarkets(String query, {int limit = 20}) async {
+    final uri = Uri.parse('$baseUrl/api/markets/search').replace(
+      queryParameters: {
+        'q': query,
+        'limit': limit.toString(),
+      },
+    );
+
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      final List<dynamic> markets = data['markets'];
+      return markets.map((json) => Market.fromJson(json)).toList();
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 관심 시장 목록 조회
+  Future<List<UserMarketInterest>> getWatchlist() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/watchlist'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      final List<dynamic> watchlist = data['watchlist'];
+      return watchlist.map((json) => UserMarketInterest.fromJson(json)).toList();
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 시장을 관심 목록에 추가
+  Future<UserMarketInterest> addToWatchlist(int marketId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/watchlist'),
+      headers: _authHeaders,
+      body: json.encode({'market_id': marketId}),
+    );
+
+    if (response.statusCode == 201) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return UserMarketInterest.fromJson(data['interest']);
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 시장을 관심 목록에서 제거
+  Future<void> removeFromWatchlist(int marketId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/watchlist/$marketId'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode != 200) {
       final Map<String, dynamic> errorData = json.decode(response.body);
       final apiError = ApiError.fromJson(errorData);
       throw ApiException(apiError.error, response.statusCode);
