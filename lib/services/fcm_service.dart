@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
@@ -19,6 +20,8 @@ class FCMService {
   // FCM 초기화
   Future<void> initialize() async {
     try {
+      print('🔥 FCM 초기화 시작 (${Platform.isIOS ? 'iOS' : 'Android'})');
+      
       // 로컬 알림 초기화
       await _initializeLocalNotifications();
       
@@ -33,12 +36,15 @@ class FCMService {
         sound: true,
       );
 
+      print('📱 FCM 권한 상태: ${settings.authorizationStatus}');
+      print('📱 알림 설정 - Alert: ${settings.alert}, Badge: ${settings.badge}, Sound: ${settings.sound}');
+
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('FCM 권한 허용됨');
+        print('✅ FCM 권한 허용됨');
         
         // iOS에서 APNS 토큰 등록 대기
         if (Platform.isIOS) {
-          print('iOS APNS 토큰 등록 대기 중...');
+          print('🍎 iOS APNS 토큰 등록 대기 중...');
           await _waitForAPNSToken();
         }
         
@@ -47,7 +53,7 @@ class FCMService {
         
         // 토큰 갱신 리스너
         _firebaseMessaging.onTokenRefresh.listen((newToken) {
-          print('FCM 토큰 갱신: $newToken');
+          print('🔄 FCM 토큰 갱신: ${newToken?.substring(0, 50)}...');
           _fcmToken = newToken;
           _registerTokenToServer();
         });
@@ -61,15 +67,20 @@ class FCMService {
         // 앱이 종료된 상태에서 알림 클릭으로 앱이 시작된 경우
         FirebaseMessaging.instance.getInitialMessage().then((message) {
           if (message != null) {
+            print('📬 앱 시작 시 메시지 있음: ${message.messageId}');
             _handleBackgroundMessageClick(message);
           }
         });
         
+        print('🎯 FCM 초기화 완료');
+        
+      } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        print('❌ FCM 권한 거부됨 - 설정에서 알림을 허용해주세요');
       } else {
-        print('FCM 권한 거부됨');
+        print('⚠️ FCM 권한 상태: ${settings.authorizationStatus}');
       }
     } catch (e) {
-      print('FCM 초기화 오류: $e');
+      print('💥 FCM 초기화 오류: $e');
     }
   }
 
@@ -84,19 +95,20 @@ class FCMService {
       // APNS 토큰이 없으면 최대 10초 대기
       int attempts = 0;
       while (apnsToken == null && attempts < 20) {
-        print('APNS 토큰 대기 중... (${attempts + 1}/20)');
+        print('🍎 APNS 토큰 대기 중... (${attempts + 1}/20)');
         await Future.delayed(const Duration(milliseconds: 500));
         apnsToken = await _firebaseMessaging.getAPNSToken();
         attempts++;
       }
       
       if (apnsToken != null) {
-        print('APNS 토큰 획득 성공: ${apnsToken.substring(0, 20)}...');
+        print('✅ APNS 토큰 획득 성공: ${apnsToken.substring(0, 20)}...');
       } else {
-        print('APNS 토큰 획득 실패 - FCM 토큰 요청을 계속 진행합니다');
+        print('⚠️ APNS 토큰 획득 실패 - AppDelegate.swift 설정을 확인해주세요');
+        print('💡 해결 방법: iOS Simulator에서는 APNS가 작동하지 않습니다. 실제 기기를 사용해주세요.');
       }
     } catch (e) {
-      print('APNS 토큰 확인 중 오류: $e');
+      print('💥 APNS 토큰 확인 중 오류: $e');
     }
   }
 
@@ -107,31 +119,35 @@ class FCMService {
       if (Platform.isIOS) {
         String? apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken == null) {
-          print('APNS 토큰이 아직 없음 - FCM 토큰 요청을 잠시 지연');
+          print('⚠️ APNS 토큰이 아직 없음 - FCM 토큰 요청을 잠시 지연');
           await Future.delayed(const Duration(seconds: 2));
+        } else {
+          print('✅ APNS 토큰 확인됨 - FCM 토큰 요청 진행');
         }
       }
       
       _fcmToken = await _firebaseMessaging.getToken();
-      print('FCM 토큰: $_fcmToken');
       
       if (_fcmToken != null) {
+        print('🎯 FCM 토큰 획득 성공: ${_fcmToken!.substring(0, 50)}...');
         await _registerTokenToServer();
+      } else {
+        print('❌ FCM 토큰 획득 실패');
       }
     } catch (e) {
-      print('FCM 토큰 획득 오류: $e');
+      print('💥 FCM 토큰 획득 오류: $e');
       // iOS APNS 토큰 오류인 경우 재시도
       if (Platform.isIOS && e.toString().contains('APNS token')) {
-        print('APNS 토큰 오류 감지 - 5초 후 재시도');
+        print('🔄 APNS 토큰 오류 감지 - 5초 후 재시도');
         await Future.delayed(const Duration(seconds: 5));
         try {
           _fcmToken = await _firebaseMessaging.getToken();
-          print('FCM 토큰 재시도 성공: $_fcmToken');
           if (_fcmToken != null) {
+            print('✅ FCM 토큰 재시도 성공: ${_fcmToken!.substring(0, 50)}...');
             await _registerTokenToServer();
           }
         } catch (retryError) {
-          print('FCM 토큰 재시도 실패: $retryError');
+          print('💥 FCM 토큰 재시도 실패: $retryError');
         }
       }
     }
@@ -195,10 +211,13 @@ class FCMService {
 
   // 포그라운드 메시지 처리
   void _handleForegroundMessage(RemoteMessage message) {
-    print('포그라운드 FCM 메시지 수신:');
-    print('제목: ${message.notification?.title}');
-    print('내용: ${message.notification?.body}');
-    print('데이터: ${message.data}');
+    print('📨 포그라운드 FCM 메시지 수신:');
+    print('📬 메시지 ID: ${message.messageId}');
+    print('📰 제목: ${message.notification?.title}');
+    print('📝 내용: ${message.notification?.body}');
+    print('📦 데이터: ${message.data}');
+    print('🏷️ From: ${message.from}');
+    print('⏰ 전송 시간: ${message.sentTime}');
     
     // 포그라운드에서 로컬 알림 표시
     _showLocalNotification(message);
@@ -272,6 +291,101 @@ class FCMService {
     } catch (e) {
       print('테스트 알림 요청 실패: $e');
       return false;
+    }
+  }
+
+  // iOS 디버깅용 - FCM 상태 확인
+  Future<Map<String, dynamic>> getIOSFCMStatus() async {
+    if (!Platform.isIOS) {
+      return {'platform': 'android', 'message': 'Android 환경'};
+    }
+
+    try {
+      print('🔍 iOS FCM 상태 진단 시작...');
+      
+      final settings = await _firebaseMessaging.getNotificationSettings();
+      final apnsToken = await _firebaseMessaging.getAPNSToken();
+      final fcmToken = await _firebaseMessaging.getToken();
+
+      // 추가 진단 정보
+      final isSimulator = await _isIOSSimulator();
+      final bundleId = await _getBundleIdentifier();
+      
+      print('📱 기기 타입: ${isSimulator ? "시뮬레이터" : "실기기"}');
+      print('📦 Bundle ID: $bundleId');
+      print('🔐 권한 상태: ${settings.authorizationStatus}');
+      print('🍎 APNS 토큰: ${apnsToken != null ? "있음" : "없음"}');
+      print('🔥 FCM 토큰: ${fcmToken != null ? "있음" : "없음"}');
+
+      return {
+        'platform': 'ios',
+        'is_simulator': isSimulator,
+        'bundle_id': bundleId,
+        'authorization_status': settings.authorizationStatus.toString(),
+        'authorization_status_raw': settings.authorizationStatus.name,
+        'alert_setting': settings.alert.toString(),
+        'badge_setting': settings.badge.toString(),
+        'sound_setting': settings.sound.toString(),
+        'critical_alert_setting': settings.criticalAlert.toString(),
+        'has_apns_token': apnsToken != null,
+        'apns_token_preview': apnsToken?.substring(0, 20),
+        'apns_token_length': apnsToken?.length,
+        'has_fcm_token': fcmToken != null,
+        'fcm_token_preview': fcmToken?.substring(0, 50),
+        'fcm_token_length': fcmToken?.length,
+        'current_fcm_token': _fcmToken,
+        'firebase_app_check': await _checkFirebaseConnection(),
+      };
+    } catch (e) {
+      print('💥 iOS FCM 상태 확인 오류: $e');
+      return {
+        'platform': 'ios',
+        'error': e.toString(),
+        'error_type': e.runtimeType.toString(),
+      };
+    }
+  }
+
+  // iOS 시뮬레이터 여부 확인
+  Future<bool> _isIOSSimulator() async {
+    try {
+      // iOS에서 시뮬레이터인지 확인하는 간단한 방법
+      // 실제로는 더 정확한 방법이 있지만, APNS 토큰 유무로도 판단 가능
+      final apnsToken = await _firebaseMessaging.getAPNSToken();
+      return apnsToken == null;
+    } catch (e) {
+      return true; // 오류 시 시뮬레이터로 가정
+    }
+  }
+
+  // Bundle Identifier 확인
+  Future<String> _getBundleIdentifier() async {
+    try {
+      // Flutter에서 Bundle ID를 직접 가져오는 방법은 제한적
+      // 일반적으로 플랫폼 채널을 사용해야 하지만, 여기서는 간단히 처리
+      return 'com.example.mwn'; // 실제 Bundle ID로 교체 필요
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  // Firebase 연결 상태 확인
+  Future<String> _checkFirebaseConnection() async {
+    try {
+      // Firebase App이 제대로 초기화되었는지 확인
+      final app = Firebase.app();
+      return 'connected (${app.name})';
+    } catch (e) {
+      return 'error: $e';
+    }
+  }
+
+  // iOS 알림 설정 페이지로 이동하는 도우미 메서드
+  void openIOSNotificationSettings() {
+    if (Platform.isIOS) {
+      print('💡 iOS 알림 설정을 확인하려면:');
+      print('   설정 > 알림 > MWN > 알림 허용을 ON으로 설정하세요');
+      print('   또한 포그라운드에서 알림을 보려면 "배너" 또는 "알림"을 활성화해야 합니다');
     }
   }
 }
