@@ -260,26 +260,70 @@ class ApiService {
     List<int>? userIds,
     Map<String, dynamic>? data,
   }) async {
+    // 인증 상태 미리 확인
+    print('🔒 현재 로그인 상태: ${isLoggedIn}');
+    print('🔑 액세스 토큰 존재: ${_accessToken != null}');
+    if (_accessToken != null) {
+      print('🔑 토큰 길이: ${_accessToken!.length}');
+      print('🔑 토큰 앞부분: ${_accessToken!.substring(0, 20)}...');
+    }
+
     final requestBody = <String, dynamic>{
       'title': title,
       'body': body,
     };
 
-    if (topic != null) {
+    // 전체 전송인지, 특정 타겟 전송인지 구분
+    if (topic != null && topic.isNotEmpty) {
       requestBody['topic'] = topic;
-    }
-    if (userIds != null && userIds.isNotEmpty) {
+    } else if (userIds != null && userIds.isNotEmpty) {
       requestBody['user_ids'] = userIds;
+    } else {
+      // 전체 전송인 경우 명시적으로 플래그 설정
+      requestBody['broadcast_all'] = true;
     }
+    
     if (data != null) {
       requestBody['data'] = data;
     }
+
+    print('FCM 브로드캐스트 요청: ${json.encode(requestBody)}');
+    print('🔑 요청 헤더: ${_authHeaders}');
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/admin/fcm/send'),
       headers: _authHeaders,
       body: json.encode(requestBody),
     );
+
+    print('FCM 브로드캐스트 응답: ${response.statusCode} - ${response.body}');
+
+    // 401 오류인 경우 토큰 갱신 시도
+    if (response.statusCode == 401 && _refreshToken != null) {
+      print('🔄 401 오류 감지 - 토큰 갱신 시도');
+      try {
+        await refreshToken();
+        print('✅ 토큰 갱신 성공 - 재시도');
+        
+        // 갱신된 토큰으로 재시도
+        final retryResponse = await http.post(
+          Uri.parse('$baseUrl/api/admin/fcm/send'),
+          headers: _authHeaders,
+          body: json.encode(requestBody),
+        );
+        
+        print('FCM 브로드캐스트 재시도 응답: ${retryResponse.statusCode} - ${retryResponse.body}');
+        
+        if (retryResponse.statusCode != 200) {
+          final Map<String, dynamic> errorData = json.decode(retryResponse.body);
+          final apiError = ApiError.fromJson(errorData);
+          throw ApiException(apiError.error, retryResponse.statusCode);
+        }
+        return; // 성공하면 여기서 종료
+      } catch (refreshError) {
+        print('💥 토큰 갱신 실패: $refreshError');
+      }
+    }
 
     if (response.statusCode != 200) {
       final Map<String, dynamic> errorData = json.decode(response.body);

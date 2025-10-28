@@ -107,10 +107,12 @@ class AuthProvider with ChangeNotifier {
       
       // 로그인 성공 시 FCM 토큰 등록
       try {
+        print('🔄 로그인 후 FCM 토큰 등록 시작');
         _fcmService ??= FCMService();
         await _fcmService!.registerTokenAfterLogin();
+        print('✅ 로그인 후 FCM 토큰 등록 완료');
       } catch (e) {
-        print('FCM 토큰 등록 실패: $e');
+        print('💥 로그인 후 FCM 토큰 등록 실패: $e');
       }
       
       _setLoading(false);

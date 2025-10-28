@@ -155,7 +155,15 @@ class FCMService {
 
   // 서버에 FCM 토큰 등록
   Future<void> _registerTokenToServer() async {
-    if (_fcmToken == null || !_apiService.isLoggedIn) return;
+    if (_fcmToken == null) {
+      print('❌ FCM 토큰이 없어서 서버 등록을 건너뜁니다');
+      return;
+    }
+    
+    if (!_apiService.isLoggedIn) {
+      print('❌ 로그인되지 않아서 FCM 토큰 등록을 건너뜁니다');
+      return;
+    }
     
     try {
       final deviceInfo = {
@@ -163,19 +171,32 @@ class FCMService {
         'timestamp': DateTime.now().toIso8601String(),
       };
 
+      print('🔄 FCM 토큰 서버 등록 시작 - 토큰: ${_fcmToken!.substring(0, 50)}...');
       await _apiService.registerFCMToken(_fcmToken!, deviceInfo);
-      print('FCM 토큰 서버 등록 성공');
+      print('✅ FCM 토큰 서버 등록 성공');
     } catch (e) {
-      print('FCM 토큰 서버 등록 실패: $e');
+      print('💥 FCM 토큰 서버 등록 실패: $e');
+      // 등록 실패해도 앱 동작은 계속
     }
   }
 
   // 로그인 후 FCM 토큰 등록 (수동 호출용)
   Future<void> registerTokenAfterLogin() async {
+    print('🔄 로그인 후 FCM 토큰 등록 프로세스 시작');
+    
     if (_fcmToken != null) {
+      print('✅ 기존 FCM 토큰 있음 - 서버 등록 시도');
       await _registerTokenToServer();
     } else {
+      print('⚠️ FCM 토큰 없음 - 새로 생성 후 등록');
       await _getFCMToken();
+    }
+    
+    // 등록 후 최종 상태 확인
+    if (_fcmToken != null) {
+      print('✅ FCM 토큰 등록 프로세스 완료 - 토큰: ${_fcmToken!.substring(0, 50)}...');
+    } else {
+      print('❌ FCM 토큰 등록 프로세스 실패 - 토큰이 여전히 없음');
     }
   }
 

@@ -71,6 +71,52 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
   final _bodyController = TextEditingController();
   bool _isLoading = false;
 
+  Future<void> _checkFCMStatus() async {
+    try {
+      print('🔄 FCM 토큰 상태 확인 시작');
+      final users = await widget.apiService.getAllUsers();
+      final activeUsers = users.where((user) => user.fcmToken != null).toList();
+      final inactiveUsers = users.where((user) => user.fcmToken == null).toList();
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('FCM 토큰 상태'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('✅ FCM 활성 사용자: ${activeUsers.length}명'),
+                Text('❌ FCM 비활성 사용자: ${inactiveUsers.length}명'),
+                const SizedBox(height: 16),
+                const Text('FCM 활성 사용자:', style: TextStyle(fontWeight: FontWeight.bold)),
+                ...activeUsers.map((user) => Text('• ${user.name} (${user.email})')),
+                if (inactiveUsers.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('FCM 비활성 사용자:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ...inactiveUsers.map((user) => Text('• ${user.name} (${user.email})')),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('FCM 상태 확인 실패: $e')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -86,6 +132,23 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
     });
 
     try {
+      print('전체 사용자 FCM 브로드캐스트 시작');
+      
+      // 먼저 사용자 목록 API 호출로 권한 테스트
+      print('🔍 관리자 권한 확인 중...');
+      
+      // 현재 프로필 확인
+      try {
+        final profile = await widget.apiService.getProfile();
+        print('👤 현재 사용자: ${profile.name} (${profile.email})');
+        print('🔰 사용자 역할: ${profile.role}');
+      } catch (e) {
+        print('❌ 프로필 확인 실패: $e');
+      }
+      
+      await widget.apiService.getAllUsers();
+      print('✅ 관리자 권한 확인됨');
+      
       await widget.apiService.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
@@ -96,17 +159,21 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
           const SnackBar(
             content: Text('전체 사용자에게 알림이 전송되었습니다'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
         _titleController.clear();
         _bodyController.clear();
       }
+      print('전체 사용자 FCM 브로드캐스트 완료');
     } catch (e) {
+      print('전체 사용자 FCM 브로드캐스트 실패: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('알림 전송 실패: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -143,6 +210,17 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue[700],
+                          ),
+                        ),
+                        const Spacer(),
+                        ElevatedButton.icon(
+                          onPressed: _checkFCMStatus,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('토큰 상태'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(100, 32),
                           ),
                         ),
                       ],
@@ -250,29 +328,35 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
     });
 
     try {
+      final topic = _topicController.text.trim();
+      print('주제별 FCM 브로드캐스트 시작 - 주제: $topic');
       await widget.apiService.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
-        topic: _topicController.text.trim(),
+        topic: topic,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('주제 "${_topicController.text.trim()}"로 알림이 전송되었습니다'),
+            content: Text('주제 "$topic"로 알림이 전송되었습니다'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
         _titleController.clear();
         _bodyController.clear();
         _topicController.clear();
       }
+      print('주제별 FCM 브로드캐스트 완료');
     } catch (e) {
+      print('주제별 FCM 브로드캐스트 실패: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('알림 전송 실패: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -473,6 +557,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
 
     try {
       final userIds = _selectedUsers.map((user) => user.id).toList();
+      print('선택 사용자 FCM 브로드캐스트 시작 - 사용자 ${userIds.length}명: $userIds');
       await widget.apiService.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
@@ -484,6 +569,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
           SnackBar(
             content: Text('선택된 ${_selectedUsers.length}명에게 알림이 전송되었습니다'),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
         _titleController.clear();
@@ -492,12 +578,15 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
           _selectedUsers.clear();
         });
       }
+      print('선택 사용자 FCM 브로드캐스트 완료');
     } catch (e) {
+      print('선택 사용자 FCM 브로드캐스트 실패: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('알림 전송 실패: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
