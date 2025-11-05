@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 import 'api_service.dart';
+import 'notification_storage_service.dart';
+import '../models/notification_item.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -13,6 +15,7 @@ class FCMService {
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final ApiService _apiService = ApiService();
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final NotificationStorageService _storageService = NotificationStorageService();
   
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
@@ -239,7 +242,10 @@ class FCMService {
     print('📦 데이터: ${message.data}');
     print('🏷️ From: ${message.from}');
     print('⏰ 전송 시간: ${message.sentTime}');
-    
+
+    // 알림 저장
+    _saveNotificationToStorage(message);
+
     // 포그라운드에서 로컬 알림 표시
     _showLocalNotification(message);
   }
@@ -279,9 +285,29 @@ class FCMService {
     print('제목: ${message.notification?.title}');
     print('내용: ${message.notification?.body}');
     print('데이터: ${message.data}');
-    
+
+    // 알림 저장
+    _saveNotificationToStorage(message);
+
     // TODO: 특정 화면으로 이동하거나 액션 수행
     // 예: 날씨 상세 화면으로 이동, 알림 목록 화면으로 이동 등
+  }
+
+  // 알림을 로컬 저장소에 저장
+  void _saveNotificationToStorage(RemoteMessage message) {
+    try {
+      final notification = NotificationItem(
+        id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        title: message.notification?.title ?? '알림',
+        body: message.notification?.body ?? '',
+        receivedAt: DateTime.now().toIso8601String(),
+        data: message.data.isNotEmpty ? message.data : null,
+      );
+
+      _storageService.saveNotification(notification);
+    } catch (e) {
+      print('❌ 알림 저장 중 오류: $e');
+    }
   }
 
   // 특정 주제 구독
@@ -418,4 +444,19 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('제목: ${message.notification?.title}');
   print('내용: ${message.notification?.body}');
   print('데이터: ${message.data}');
+
+  // 백그라운드에서도 알림 저장
+  try {
+    final notification = NotificationItem(
+      id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: message.notification?.title ?? '알림',
+      body: message.notification?.body ?? '',
+      receivedAt: DateTime.now().toIso8601String(),
+      data: message.data.isNotEmpty ? message.data : null,
+    );
+
+    await NotificationStorageService().saveNotification(notification);
+  } catch (e) {
+    print('❌ 백그라운드 알림 저장 중 오류: $e');
+  }
 }
