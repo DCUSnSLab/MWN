@@ -6,6 +6,7 @@ import '../../widgets/empty_watchlist_widget.dart';
 import '../../widgets/market_weather_widget.dart';
 import '../auth/login_screen.dart';
 import '../admin/admin_dashboard.dart';
+import '../notifications/notification_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,6 +55,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('날씨 알림'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationHistoryScreen(),
+                ),
+              );
+            },
+            tooltip: '알림 내역',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadMarketData,
