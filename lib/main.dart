@@ -104,27 +104,61 @@ class _AuthWrapperState extends State<AuthWrapper> {
       builder: (context, authProvider, child) {
         // 로딩 중일 때 스플래시 화면
         if (authProvider.isLoading) {
-          return const Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.cloud,
-                    size: 80,
-                    color: Colors.blue,
-                  ),
-                  SizedBox(height: 24),
-                  Text(
-                    '날씨 알림',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+          return Scaffold(
+            body: Container(
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/images/app_bg.jpg'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 앱 아이콘 이미지
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          width: 120,
+                          height: 120,
+                        ),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 16),
-                  CircularProgressIndicator(),
-                ],
+                    const SizedBox(height: 24),
+                    const Text(
+                      '날씨 알림',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            offset: Offset(2, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
