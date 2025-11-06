@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/market.dart';
 import '../models/weather.dart';
-import '../screens/market/market_search_screen.dart';
 
 class MarketWeatherWidget extends StatelessWidget {
   final UserMarketInterest market;
@@ -130,27 +129,12 @@ class MarketWeatherWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const MarketSearchScreen(),
-                          ),
-                        );
-                      },
-                      tooltip: '시장 추가',
-                    ),
-                    if (onRefresh != null)
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: onRefresh,
-                        tooltip: '새로고침',
-                      ),
-                  ],
-                ),
+                if (onRefresh != null)
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: onRefresh,
+                    tooltip: '새로고침',
+                  ),
               ],
             ),
             
