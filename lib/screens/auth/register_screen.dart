@@ -44,8 +44,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (success) {
-        // main.dart의 AuthWrapper에서 자동으로 적절한 화면으로 이동됨
-        // 여기서는 별도의 네비게이션이 필요 없음
+        // 회원가입 성공 - RegisterScreen을 제거하면 AuthWrapper가 자동으로 HomeScreen 표시
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       }
     }
   }

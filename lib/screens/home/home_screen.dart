@@ -7,6 +7,7 @@ import '../../widgets/market_weather_widget.dart';
 import '../auth/login_screen.dart';
 import '../admin/admin_dashboard.dart';
 import '../notifications/notification_history_screen.dart';
+import '../market/watchlist_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,24 +54,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationHistoryScreen(),
+              ),
+            );
+          },
+          tooltip: '알림 내역',
+        ),
         title: const Text('날씨 알림'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationHistoryScreen(),
-                ),
-              );
-            },
-            tooltip: '알림 내역',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadMarketData,
-          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {
@@ -148,6 +145,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.favorite),
+                              color: Colors.red,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const WatchlistManagementScreen(),
+                                  ),
+                                ).then((_) {
+                                  // 관심 시장 관리 화면에서 돌아왔을 때 새로고침
+                                  _loadMarketData();
+                                });
+                              },
+                              tooltip: '관심 시장 관리',
                             ),
                           ],
                         ),
