@@ -220,13 +220,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     return const EmptyWatchlistWidget();
                   }
 
-                  if (marketProvider.closestMarket != null) {
-                    return MarketWeatherWidget(
-                      market: marketProvider.closestMarket!,
-                      weather: marketProvider.closestMarketWeather,
-                      onRefresh: () {
-                        marketProvider.updateClosestMarketWeather();
-                      },
+                  // 가까운 시장 5개 표시
+                  if (marketProvider.nearbyMarkets.isNotEmpty) {
+                    return Column(
+                      children: marketProvider.nearbyMarkets.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final market = entry.value;
+                        final weather = marketProvider.nearbyMarketsWeather[market.marketId];
+
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: index < marketProvider.nearbyMarkets.length - 1 ? 16.0 : 0,
+                          ),
+                          child: MarketWeatherWidget(
+                            market: market,
+                            weather: weather,
+                            onRefresh: () {
+                              marketProvider.updateNearbyMarketsWeather();
+                            },
+                          ),
+                        );
+                      }).toList(),
                     );
                   }
 
