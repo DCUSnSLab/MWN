@@ -98,6 +98,111 @@ class MarketService {
     }
   }
 
+  // 현재 위치에서 가까운 순으로 N개의 관심 시장 가져오기
+  Future<List<UserMarketInterest>> getNearbyWatchedMarkets({int limit = 5}) async {
+    try {
+      // 현재 위치 가져오기
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) {
+        print('⚠️ 현재 위치를 가져올 수 없습니다');
+        return [];
+      }
+
+      // 관심 시장 목록 가져오기
+      final watchlist = await getWatchlist();
+      if (watchlist.isEmpty) {
+        print('⚠️ 관심 시장이 없습니다');
+        return [];
+      }
+
+      // 좌표가 있는 관심 시장들만 필터링
+      final marketsWithCoordinates = watchlist.where((interest) {
+        return interest.marketCoordinates?.hasCoordinates == true;
+      }).toList();
+
+      if (marketsWithCoordinates.isEmpty) {
+        print('⚠️ 좌표가 있는 관심 시장이 없습니다');
+        return [];
+      }
+
+      // 각 시장의 거리 계산 및 정렬
+      final marketsWithDistance = marketsWithCoordinates.map((interest) {
+        final coords = interest.marketCoordinates!;
+        final distance = calculateDistance(
+          position.latitude,
+          position.longitude,
+          coords.latitude!,
+          coords.longitude!,
+        );
+        return {'interest': interest, 'distance': distance};
+      }).toList();
+
+      // 거리순으로 정렬
+      marketsWithDistance.sort((a, b) =>
+        (a['distance'] as double).compareTo(b['distance'] as double)
+      );
+
+      // 상위 N개 선택
+      final nearbyMarkets = marketsWithDistance
+          .take(limit)
+          .map((item) => item['interest'] as UserMarketInterest)
+          .toList();
+
+      print('✅ 가까운 시장 ${nearbyMarkets.length}개 찾음');
+      return nearbyMarkets;
+    } catch (e) {
+      print('❌ 가까운 시장 찾기 오류: $e');
+      return [];
+    }
+  }
+
+  // 여러 시장의 날씨 정보를 한 번에 가져오기
+  Future<Map<int, WeatherData>> getMultipleMarketsWeather(
+    List<UserMarketInterest> markets
+  ) async {
+    final weatherMap = <int, WeatherData>{};
+
+    try {
+      // 각 시장의 날씨를 병렬로 조회
+      final weatherFutures = markets.map((interest) async {
+        final coords = interest.marketCoordinates;
+        if (coords == null || !coords.hasCoordinates) return null;
+
+        try {
+          final request = WeatherRequest(
+            latitude: coords.latitude!,
+            longitude: coords.longitude!,
+            locationName: interest.marketName ?? '관심 시장',
+          );
+
+          final weather = await _apiService.getCurrentWeather(request);
+          return {'marketId': interest.marketId, 'weather': weather};
+        } catch (e) {
+          print('❌ ${interest.marketName} 날씨 조회 실패: $e');
+          return null;
+        }
+      });
+
+      // 모든 날씨 조회 완료 대기
+      final results = await Future.wait(weatherFutures);
+
+      // 결과를 Map으로 변환
+      for (final result in results) {
+        if (result != null) {
+          final marketId = result['marketId'] as int;
+          final weather = result['weather'] as WeatherData;
+          weatherMap[marketId] = weather;
+        }
+      }
+
+      print('✅ ${weatherMap.length}개 시장의 날씨 조회 완료');
+    } catch (e) {
+      print('❌ 날씨 조회 오류: $e');
+    }
+
+    return weatherMap;
+  }
+
   // 특정 시장의 현재 날씨 조회
   Future<WeatherData?> getMarketCurrentWeather(UserMarketInterest interest) async {
     final coords = interest.marketCoordinates;

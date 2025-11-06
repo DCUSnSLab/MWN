@@ -8,18 +8,22 @@ class MarketProvider with ChangeNotifier {
   
   List<UserMarketInterest> _watchlist = [];
   List<Market> _searchResults = [];
-  UserMarketInterest? _closestMarket;
-  WeatherData? _closestMarketWeather;
+  List<UserMarketInterest> _nearbyMarkets = [];
+  Map<int, WeatherData> _nearbyMarketsWeather = {};
   bool _isLoading = false;
   String? _error;
 
   List<UserMarketInterest> get watchlist => _watchlist;
   List<Market> get searchResults => _searchResults;
-  UserMarketInterest? get closestMarket => _closestMarket;
-  WeatherData? get closestMarketWeather => _closestMarketWeather;
+  List<UserMarketInterest> get nearbyMarkets => _nearbyMarkets;
+  Map<int, WeatherData> get nearbyMarketsWeather => _nearbyMarketsWeather;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasWatchedMarkets => _watchlist.isNotEmpty;
+
+  // 하위 호환성을 위한 getter (기존 코드와 호환)
+  UserMarketInterest? get closestMarket => _nearbyMarkets.isNotEmpty ? _nearbyMarkets.first : null;
+  WeatherData? get closestMarketWeather => _nearbyMarkets.isNotEmpty ? _nearbyMarketsWeather[_nearbyMarkets.first.marketId] : null;
 
   void _setLoading(bool loading) {
     _isLoading = loading;
@@ -43,13 +47,13 @@ class MarketProvider with ChangeNotifier {
 
     try {
       _watchlist = await _marketService.getWatchlist();
-      
-      // 가장 가까운 시장 및 날씨 정보 업데이트
+
+      // 가까운 시장 5개 및 날씨 정보 업데이트
       if (_watchlist.isNotEmpty) {
-        await updateClosestMarketWeather();
+        await updateNearbyMarketsWeather();
       } else {
-        _closestMarket = null;
-        _closestMarketWeather = null;
+        _nearbyMarkets = [];
+        _nearbyMarketsWeather = {};
       }
     } catch (e) {
       _setError(e.toString());
@@ -83,12 +87,10 @@ class MarketProvider with ChangeNotifier {
     try {
       final interest = await _marketService.addToWatchlist(market.id);
       _watchlist.add(interest);
-      
-      // 첫 번째 관심 시장이 추가된 경우 가장 가까운 시장 업데이트
-      if (_watchlist.length == 1) {
-        await updateClosestMarketWeather();
-      }
-      
+
+      // 가까운 시장 목록 업데이트
+      await updateNearbyMarketsWeather();
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -104,12 +106,10 @@ class MarketProvider with ChangeNotifier {
     try {
       await _marketService.removeFromWatchlist(marketId);
       _watchlist.removeWhere((interest) => interest.marketId == marketId);
-      
-      // 제거된 시장이 가장 가까운 시장이었다면 다시 계산
-      if (_closestMarket?.marketId == marketId) {
-        await updateClosestMarketWeather();
-      }
-      
+
+      // 가까운 시장 목록 업데이트
+      await updateNearbyMarketsWeather();
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -118,21 +118,31 @@ class MarketProvider with ChangeNotifier {
     }
   }
 
-  // 가장 가까운 관심 시장의 날씨 정보 업데이트
-  Future<void> updateClosestMarketWeather() async {
+  // 가까운 관심 시장들의 날씨 정보 업데이트 (최대 5개)
+  Future<void> updateNearbyMarketsWeather({int limit = 5}) async {
     try {
-      _closestMarket = await _marketService.getClosestWatchedMarket();
-      
-      if (_closestMarket != null) {
-        _closestMarketWeather = await _marketService.getMarketCurrentWeather(_closestMarket!);
+      print('🔄 가까운 시장 ${limit}개의 날씨 업데이트 중...');
+
+      // 가까운 시장 N개 가져오기
+      _nearbyMarkets = await _marketService.getNearbyWatchedMarkets(limit: limit);
+
+      // 각 시장의 날씨 정보 가져오기
+      if (_nearbyMarkets.isNotEmpty) {
+        _nearbyMarketsWeather = await _marketService.getMultipleMarketsWeather(_nearbyMarkets);
       } else {
-        _closestMarketWeather = null;
+        _nearbyMarketsWeather = {};
       }
-      
+
       notifyListeners();
+      print('✅ ${_nearbyMarkets.length}개 시장의 날씨 업데이트 완료');
     } catch (e) {
-      print('Error updating closest market weather: $e');
+      print('❌ 가까운 시장 날씨 업데이트 오류: $e');
     }
+  }
+
+  // 하위 호환성을 위한 메서드 (기존 코드와 호환)
+  Future<void> updateClosestMarketWeather() async {
+    await updateNearbyMarketsWeather(limit: 5);
   }
 
   // 특정 시장이 관심 목록에 있는지 확인
