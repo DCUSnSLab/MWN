@@ -8,6 +8,7 @@ import '../auth/login_screen.dart';
 import '../admin/admin_dashboard.dart';
 import '../notifications/notification_history_screen.dart';
 import '../market/watchlist_management_screen.dart';
+import '../account/account_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -145,6 +146,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.settings),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AccountManagementScreen(),
+                                  ),
+                                );
+                              },
+                              tooltip: '계정 관리',
                             ),
                             IconButton(
                               icon: const Icon(Icons.favorite),

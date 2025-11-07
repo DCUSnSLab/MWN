@@ -438,6 +438,24 @@ class ApiService {
     }
   }
 
+  // 계정 삭제
+  Future<void> deleteAccount() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/auth/delete'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode != 200) {
+      print('⛔ 계정 삭제 실패 응답: ${response.statusCode}');
+      print('응답 내용: ${response.body}');
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+
+    await clearTokens();
+  }
+
   // 토큰 자동 갱신을 포함한 인증된 요청
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,

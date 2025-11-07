@@ -159,4 +159,27 @@ class AuthProvider with ChangeNotifier {
       }
     }
   }
+
+  // 계정 삭제
+  Future<void> deleteAccount() async {
+    _setLoading(true);
+    _setError(null);
+
+    try {
+      await _apiService.deleteAccount();
+      
+      // 저장된 자격 증명 삭제
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('saved_email');
+      await prefs.remove('saved_password');
+      await prefs.setBool('auto_login', false);
+      
+      _currentUser = null;
+      _setLoading(false);
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+      rethrow;
+    }
+  }
 }
