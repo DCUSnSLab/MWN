@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../models/weather.dart';
 import '../models/api_error.dart';
 import '../models/market.dart';
+import '../models/alert_conditions.dart';
 
 class ApiService {
   static const String baseUrl = 'http://203.250.34.141';
@@ -456,12 +457,106 @@ class ApiService {
     await clearTokens();
   }
 
+  // ===== 알림 조건 관리 API =====
+
+  // 시장의 알림 조건 조회
+  Future<MarketAlertConditionsResponse> getMarketAlertConditions(int marketId) async {
+    final url = '$baseUrl/api/markets/$marketId/alert-conditions';
+    print('🌐 알림 조건 조회 URL: $url');
+    print('🔑 헤더: $_authHeaders');
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: _authHeaders,
+    );
+
+    print('📡 응답 코드: ${response.statusCode}');
+    print('📄 응답 본문 (처음 200자): ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+
+    if (response.statusCode == 200) {
+      try {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return MarketAlertConditionsResponse.fromJson(data);
+      } catch (e) {
+        print('💥 JSON 파싱 오류: $e');
+        print('📄 전체 응답: ${response.body}');
+        throw Exception('JSON 파싱 실패: $e');
+      }
+    } else {
+      print('❌ 오류 응답: ${response.body}');
+      try {
+        final Map<String, dynamic> errorData = json.decode(response.body);
+        final apiError = ApiError.fromJson(errorData);
+        throw ApiException(apiError.error, response.statusCode);
+      } catch (e) {
+        throw Exception('서버 오류 (${response.statusCode}): ${response.body.substring(0, 100)}');
+      }
+    }
+  }
+
+  // 시장의 알림 조건 업데이트 (관리자)
+  Future<MarketAlertConditionsResponse> updateMarketAlertConditions(
+    int marketId,
+    Map<String, dynamic> conditions,
+  ) async {
+    print('🔄 알림 조건 업데이트 시작 - 시장 ID: $marketId');
+    print('📝 업데이트 조건: ${json.encode(conditions)}');
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/admin/markets/$marketId/alert-conditions'),
+      headers: _authHeaders,
+      body: json.encode(conditions),
+    );
+
+    print('📡 응답 코드: ${response.statusCode}');
+    print('📄 응답 본문: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return MarketAlertConditionsResponse.fromJson(data);
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 여러 시장의 알림 조건 일괄 업데이트 (관리자)
+  Future<void> bulkUpdateAlertConditions(
+    List<int> marketIds,
+    Map<String, dynamic> conditions,
+  ) async {
+    print('🔄 일괄 알림 조건 업데이트 시작');
+    print('🏪 대상 시장 수: ${marketIds.length}');
+    print('📝 업데이트 조건: ${json.encode(conditions)}');
+
+    final requestBody = {
+      'market_ids': marketIds,
+      'conditions': conditions,
+    };
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/markets/alert-conditions/bulk-update'),
+      headers: _authHeaders,
+      body: json.encode(requestBody),
+    );
+
+    print('📡 응답 코드: ${response.statusCode}');
+    print('📄 응답 본문: ${response.body}');
+
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // 토큰 자동 갱신을 포함한 인증된 요청
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,
   ) async {
     var response = await request();
-    
+
     // 토큰 만료시 자동 갱신 시도
     if (response.statusCode == 401 && _refreshToken != null) {
       try {
@@ -473,7 +568,7 @@ class ApiService {
         rethrow;
       }
     }
-    
+
     return response;
   }
 }

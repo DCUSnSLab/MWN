@@ -6,6 +6,7 @@ import '../../services/fcm_service.dart';
 import '../../models/user.dart';
 import 'user_management_screen.dart';
 import 'fcm_broadcast_screen.dart';
+import 'weather_management_screen.dart';
 import '../home/home_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -290,8 +291,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
               icon: Icons.cloud_outlined,
               color: Colors.orange,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('날씨 관리 기능 준비 중입니다')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WeatherManagementScreen(),
+                  ),
                 );
               },
             ),
