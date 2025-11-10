@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 buildscript {
     repositories {
         google()
@@ -28,7 +31,7 @@ subprojects {
 
 subprojects {
     afterEvaluate {
-        if (project.plugins.hasPlugin("com.android.application") || 
+        if (project.plugins.hasPlugin("com.android.application") ||
             project.plugins.hasPlugin("com.android.library")) {
             project.extensions.configure<com.android.build.gradle.BaseExtension> {
                 buildFeatures.buildConfig = true
