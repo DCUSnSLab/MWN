@@ -8,7 +8,7 @@ import '../models/market.dart';
 import '../models/alert_conditions.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://203.250.34.141';
+  static const String baseUrl = 'http://203.250.33.77';
   
   // 싱글톤 패턴
   static final ApiService _instance = ApiService._internal();
