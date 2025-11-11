@@ -457,6 +457,58 @@ class ApiService {
     await clearTokens();
   }
 
+  // 비밀번호 확인
+  Future<bool> verifyPassword(String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/auth/verify-password'),
+      headers: _authHeaders,
+      body: json.encode({'password': password}),
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return data['valid'] ?? false;
+    } else if (response.statusCode == 401) {
+      return false;
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 프로필 업데이트
+  Future<User> updateProfile({
+    String? name,
+    String? email,
+    String? password,
+    String? phone,
+    String? location,
+  }) async {
+    final Map<String, dynamic> requestBody = {};
+    
+    if (name != null) requestBody['name'] = name;
+    if (email != null) requestBody['email'] = email;
+    if (password != null) requestBody['password'] = password;
+    if (phone != null) requestBody['phone'] = phone;
+    if (location != null) requestBody['location'] = location;
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/auth/profile'),
+      headers: _authHeaders,
+      body: json.encode(requestBody),
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return User.fromJson(data['user']);
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // ===== 알림 조건 관리 API =====
 
   // 시장의 알림 조건 조회

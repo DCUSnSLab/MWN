@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import 'password_verification_screen.dart';
 
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
@@ -106,11 +107,27 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '사용자 정보',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '사용자 정보',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const PasswordVerificationScreen(),
+                                ),
+                              );
+                            },
+                            tooltip: '정보 수정',
+                          ),
+                        ],
                       ),
                       const Divider(),
                       const SizedBox(height: 8),
@@ -118,7 +135,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       const SizedBox(height: 12),
                       _buildInfoRow('이메일', user.email),
                       const SizedBox(height: 12),
-                      _buildInfoRow('전화번호', user.phone ?? ''),
+                      _buildInfoRow('전화번호', user.phone ?? '미등록'),
                       if (user.location != null) ...[
                         const SizedBox(height: 12),
                         _buildInfoRow('위치', user.location!),
@@ -129,66 +146,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Card(
-                color: Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.warning,
-                            color: Colors.red.shade700,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '위험 구역',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.red.shade700,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '계정을 삭제하면 다음 데이터가 영구적으로 삭제됩니다:',
-                        style: TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text('• 사용자 프로필 정보'),
-                      const Text('• 관심 시장 목록'),
-                      const Text('• 알림 설정 및 내역'),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isDeleting ? null : _showDeleteAccountDialog,
-                          icon: _isDeleting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.delete_forever),
-                          label: Text(_isDeleting ? '삭제 중...' : '계정 삭제'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+
             ],
           );
         },

@@ -106,10 +106,10 @@ class AuthProvider with ChangeNotifier {
       print('🔑 API 로그인 요청 중...');
       final response = await _apiService.login(request);
       print('✅ API 로그인 성공');
-      
+
       _currentUser = response.user;
       print('✅ 현재 사용자 설정: ${_currentUser?.name}');
-      
+
       // 로그인 성공 시 FCM 토큰 등록
       try {
         print('🔄 로그인 후 FCM 토큰 등록 시작');
@@ -121,6 +121,7 @@ class AuthProvider with ChangeNotifier {
       }
       
       _setLoading(false);
+      notifyListeners(); // 명시적으로 알림
       print('✅ 로그인 완료 - isLoggedIn: $isLoggedIn');
       return true;
     } catch (e) {
@@ -148,6 +149,7 @@ class AuthProvider with ChangeNotifier {
     } finally {
       _currentUser = null;
       _setLoading(false);
+      notifyListeners(); // 명시적으로 알림
     }
   }
 
@@ -183,6 +185,47 @@ class AuthProvider with ChangeNotifier {
       
       _currentUser = null;
       _setLoading(false);
+      notifyListeners(); // 명시적으로 알림
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+      rethrow;
+    }
+  }
+
+  // 비밀번호 확인
+  Future<bool> verifyPassword(String password) async {
+    try {
+      return await _apiService.verifyPassword(password);
+    } catch (e) {
+      print('비밀번호 확인 실패: $e');
+      rethrow;
+    }
+  }
+
+  // 프로필 업데이트
+  Future<void> updateProfile({
+    String? name,
+    String? email,
+    String? password,
+    String? phone,
+    String? location,
+  }) async {
+    _setLoading(true);
+    _setError(null);
+
+    try {
+      final updatedUser = await _apiService.updateProfile(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+        location: location,
+      );
+
+      _currentUser = updatedUser;
+      _setLoading(false);
+      notifyListeners();
       // 명시적으로 리스너들에게 알림
       notifyListeners();
     } catch (e) {
