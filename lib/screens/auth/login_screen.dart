@@ -63,6 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
+      // 이전 에러 초기화
+      authProvider.clearError();
+      
       final success = await authProvider.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -74,6 +77,9 @@ class _LoginScreenState extends State<LoginScreen> {
         
         // main.dart의 AuthWrapper에서 자동으로 적절한 화면으로 이동됨
         // 여기서는 별도의 네비게이션이 필요 없음
+      } else {
+        // 로그인 실패 시 에러 메시지가 authProvider.error에 설정됨
+        print('로그인 실패: ${authProvider.error}');
       }
     }
   }
