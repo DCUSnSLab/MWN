@@ -93,6 +93,7 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    print('🔑 로그인 시도: $email');
     _setLoading(true);
     _setError(null);
 
@@ -102,8 +103,12 @@ class AuthProvider with ChangeNotifier {
         password: password,
       );
 
+      print('🔑 API 로그인 요청 중...');
       final response = await _apiService.login(request);
+      print('✅ API 로그인 성공');
+      
       _currentUser = response.user;
+      print('✅ 현재 사용자 설정: ${_currentUser?.name}');
       
       // 로그인 성공 시 FCM 토큰 등록
       try {
@@ -116,8 +121,10 @@ class AuthProvider with ChangeNotifier {
       }
       
       _setLoading(false);
+      print('✅ 로그인 완료 - isLoggedIn: $isLoggedIn');
       return true;
     } catch (e) {
+      print('🚨 로그인 실패: $e');
       _setError(e.toString());
       _setLoading(false);
       return false;
@@ -176,6 +183,8 @@ class AuthProvider with ChangeNotifier {
       
       _currentUser = null;
       _setLoading(false);
+      // 명시적으로 리스너들에게 알림
+      notifyListeners();
     } catch (e) {
       _setError(e.toString());
       _setLoading(false);

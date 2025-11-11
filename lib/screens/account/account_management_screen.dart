@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../auth/login_screen.dart';
 
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
@@ -57,13 +56,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           const SnackBar(
             content: Text('계정이 삭제되었습니다'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-        );
+        // 모든 라우팅 제거하고 초기 AuthWrapper로 돌아가기
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) {
