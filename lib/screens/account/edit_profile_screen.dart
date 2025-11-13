@@ -58,61 +58,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _isUpdating = true;
       });
 
-      // TODO: 백엔드 API 구현 전까지 임시로 모의 업데이트
-      await Future.delayed(const Duration(milliseconds: 800)); // 네트워크 요청 시뮬레이션
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('프로필이 성공적으로 업데이트되었습니다 (테스트 모드)'),
-            backgroundColor: Colors.green,
-          ),
+        await authProvider.updateProfile(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
+          phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+          location: _locationController.text.trim().isNotEmpty ? _locationController.text.trim() : null,
         );
-        Navigator.of(context).pop();
-        Navigator.of(context).pop(); // 비밀번호 확인 화면도 닫기
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('프로필이 성공적으로 업데이트되었습니다'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.of(context).pop();
+          Navigator.of(context).pop(); // 비밀번호 확인 화면도 닫기
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('프로필 업데이트 실패: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isUpdating = false;
+          });
+        }
       }
-
-      setState(() {
-        _isUpdating = false;
-      });
-
-      // 아래는 실제 API 구현 후 사용할 코드
-      // try {
-      //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      //   
-      //   await authProvider.updateProfile(
-      //     name: _nameController.text.trim(),
-      //     email: _emailController.text.trim(),
-      //     password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
-      //     phone: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
-      //     location: _locationController.text.trim().isNotEmpty ? _locationController.text.trim() : null,
-      //   );
-      //
-      //   if (mounted) {
-      //     ScaffoldMessenger.of(context).showSnackBar(
-      //       const SnackBar(
-      //         content: Text('프로필이 성공적으로 업데이트되었습니다'),
-      //         backgroundColor: Colors.green,
-      //       ),
-      //     );
-      //     Navigator.of(context).pop();
-      //   }
-      // } catch (e) {
-      //   if (mounted) {
-      //     ScaffoldMessenger.of(context).showSnackBar(
-      //       SnackBar(
-      //         content: Text('프로필 업데이트 실패: $e'),
-      //         backgroundColor: Colors.red,
-      //       ),
-      //     );
-      //   }
-      // } finally {
-      //   if (mounted) {
-      //     setState(() {
-      //       _isUpdating = false;
-      //     });
-      //   }
-      // }
     }
   }
 

@@ -30,49 +30,36 @@ class _PasswordVerificationScreenState extends State<PasswordVerificationScreen>
         _errorMessage = null;
       });
 
-      // TODO: 백엔드 API 구현 전까지 임시로 모든 입력을 허용
-      // 실제로는 authProvider.verifyPassword()를 호출해야 함
-      await Future.delayed(const Duration(milliseconds: 500)); // 네트워크 요청 시뮬레이션
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final success = await authProvider.verifyPassword(_passwordController.text);
 
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const EditProfileScreen(),
-          ),
-        );
+        if (mounted) {
+          if (success) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const EditProfileScreen(),
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMessage = '비밀번호가 일치하지 않습니다';
+            });
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = '비밀번호 확인 실패: $e';
+          });
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isVerifying = false;
+          });
+        }
       }
-
-      // 아래는 실제 API 구현 후 사용할 코드
-      // try {
-      //   final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      //   final success = await authProvider.verifyPassword(_passwordController.text);
-      //
-      //   if (mounted) {
-      //     if (success) {
-      //       Navigator.of(context).pushReplacement(
-      //         MaterialPageRoute(
-      //           builder: (context) => const EditProfileScreen(),
-      //         ),
-      //       );
-      //     } else {
-      //       setState(() {
-      //         _errorMessage = '비밀번호가 일치하지 않습니다';
-      //       });
-      //     }
-      //   }
-      // } catch (e) {
-      //   if (mounted) {
-      //     setState(() {
-      //       _errorMessage = '비밀번호 확인 실패: $e';
-      //     });
-      //   }
-      // } finally {
-      //   if (mounted) {
-      //     setState(() {
-      //       _isVerifying = false;
-      //     });
-      //   }
-      // }
     }
   }
 
