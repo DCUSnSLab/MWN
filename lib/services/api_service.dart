@@ -367,6 +367,34 @@ class ApiService {
 
   // ===== 시장 관련 API =====
 
+  // 전체 시장 목록 조회
+  Future<List<Market>> getMarkets({int page = 1, int perPage = 100, bool? isActive}) async {
+    final queryParams = {
+      'page': page.toString(),
+      'per_page': perPage.toString(),
+    };
+
+    if (isActive != null) {
+      queryParams['is_active'] = isActive.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/api/markets').replace(
+      queryParameters: queryParams,
+    );
+
+    final response = await http.get(uri, headers: _authHeaders);
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> responseData = json.decode(response.body);
+      final List<dynamic> markets = responseData['data'];
+      return markets.map((json) => Market.fromJson(json)).toList();
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // 시장 검색
   Future<List<Market>> searchMarkets(String query, {int limit = 20}) async {
     final uri = Uri.parse('$baseUrl/api/markets/search').replace(
@@ -600,6 +628,55 @@ class ApiService {
       final Map<String, dynamic> errorData = json.decode(response.body);
       final apiError = ApiError.fromJson(errorData);
       throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
+  // 사용자에게 날씨 테스트 알림 전송 (관리자)
+  Future<Map<String, dynamic>> sendWeatherTestAlert({
+    required int userId,
+    required int marketId,
+    required String alertType, // rain, heat, cold, wind, snow
+    bool ignoreDnd = false,
+    String? customTitle,
+    String? customBody,
+  }) async {
+    print('🔄 날씨 테스트 알림 전송 시작');
+    print('👤 사용자 ID: $userId');
+    print('🏪 시장 ID: $marketId');
+    print('🌤️ 알림 타입: $alertType');
+
+    final requestBody = {
+      'user_id': userId,
+      'market_id': marketId,
+      'alert_type': alertType,
+      'ignore_dnd': ignoreDnd,
+    };
+
+    if (customTitle != null) {
+      requestBody['custom_title'] = customTitle;
+    }
+    if (customBody != null) {
+      requestBody['custom_body'] = customBody;
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/weather-alerts/test-to-user'),
+      headers: _authHeaders,
+      body: json.encode(requestBody),
+    );
+
+    print('📡 응답 코드: ${response.statusCode}');
+    print('📄 응답 본문: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return data;
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      if (errorData.containsKey('error')) {
+        throw Exception(errorData['error']);
+      }
+      throw Exception('날씨 테스트 알림 전송 실패 (${response.statusCode})');
     }
   }
 

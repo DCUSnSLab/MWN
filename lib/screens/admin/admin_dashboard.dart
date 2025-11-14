@@ -7,6 +7,7 @@ import '../../models/user.dart';
 import 'user_management_screen.dart';
 import 'fcm_broadcast_screen.dart';
 import 'weather_management_screen.dart';
+import 'weather_test_screen.dart';
 import '../home/home_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -295,6 +296,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const WeatherManagementScreen(),
+                  ),
+                );
+              },
+            ),
+            _buildMenuCard(
+              title: '날씨 테스트',
+              subtitle: '알림 테스트 전송',
+              icon: Icons.notifications_active_outlined,
+              color: Colors.purple,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WeatherTestScreen(),
                   ),
                 );
               },
