@@ -115,7 +115,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
             body: Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/images/app_bg.jpg'),
+                  image: AssetImage('assets/images/app_bg.png'),
                   fit: BoxFit.cover,
                 ),
               ),
