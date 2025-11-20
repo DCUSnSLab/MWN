@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'password_verification_screen.dart';
 
@@ -99,11 +100,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           }
 
           return ListView(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.w),
             children: [
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(16.w),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -114,10 +115,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             '사용자 정보',
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 20.sp,
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit),
+                            icon: Icon(Icons.edit, size: 24.sp),
                             onPressed: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
@@ -130,17 +132,17 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         ],
                       ),
                       const Divider(),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       _buildInfoRow('이름', user.name),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       _buildInfoRow('이메일', user.email),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       _buildInfoRow('전화번호', user.phone ?? '미등록'),
                       if (user.location != null) ...[
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12.h),
                         _buildInfoRow('위치', user.location!),
                       ],
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       _buildInfoRow('역할', user.role == 'admin' ? '관리자' : '일반 사용자'),
                     ],
                   ),
@@ -159,20 +161,22 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 80,
+          width: 80.w,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.grey,
               fontWeight: FontWeight.w500,
+              fontSize: 14.sp,
             ),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w500,
+              fontSize: 14.sp,
             ),
           ),
         ),

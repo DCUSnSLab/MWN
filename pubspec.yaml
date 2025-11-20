@@ -50,7 +50,10 @@ dependencies:
   
   # 상태 관리
   provider: ^6.1.1
-  
+
+  # 반응형 UI
+  flutter_screenutil: ^5.9.0
+
   # FCM 푸시 알림 (안정적인 버전)
   firebase_messaging: 14.6.0
   firebase_core: 2.15.0
