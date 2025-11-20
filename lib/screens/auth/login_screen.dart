@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
 
@@ -86,162 +87,188 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 앱 로고/제목
-                Icon(
-                  Icons.cloud,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '날씨 알림',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+    return GestureDetector(
+      onTap: () {
+        // 화면 터치 시 키보드 숨기기
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(24.w),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: 40.h),
+                  // 앱 로고/제목
+                  Icon(
+                    Icons.cloud,
+                    size: 80.sp,
+                    color: Theme.of(context).primaryColor,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '위치 기반 날씨 정보를 받아보세요',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-
-                // 이메일 입력
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: '이메일',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '이메일을 입력해주세요';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return '올바른 이메일 형식이 아닙니다';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // 비밀번호 입력
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: '비밀번호',
-                    prefixIcon: const Icon(Icons.lock),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                  SizedBox(height: 16.h),
+                  Text(
+                    '날씨 알림',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 28.sp,
                     ),
-                    border: const OutlineInputBorder(),
+                    textAlign: TextAlign.center,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '비밀번호를 입력해주세요';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // 자동 로그인 체크박스
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _autoLogin,
-                      onChanged: (value) {
-                        setState(() {
-                          _autoLogin = value ?? false;
-                        });
-                      },
+                  SizedBox(height: 8.h),
+                  Text(
+                    '위치 기반 날씨 정보를 받아보세요',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: 14.sp,
                     ),
-                    const Text('자동 로그인'),
-                    const Spacer(),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 48.h),
 
-                // 로그인 버튼
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    return ElevatedButton(
-                      onPressed: authProvider.isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: authProvider.isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('로그인'),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
+                  // 이메일 입력
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    style: TextStyle(fontSize: 14.sp),
+                    decoration: InputDecoration(
+                      labelText: '이메일',
+                      labelStyle: TextStyle(fontSize: 14.sp),
+                      prefixIcon: Icon(Icons.email, size: 20.sp),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '이메일을 입력해주세요';
+                      }
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                        return '올바른 이메일 형식이 아닙니다';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16.h),
 
-                // 회원가입 링크
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterScreen(),
-                      ),
-                    );
-                  },
-                  child: const Text('계정이 없으신가요? 회원가입'),
-                ),
-
-                // 에러 메시지
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    if (authProvider.error != null) {
-                      return Container(
-                        margin: const EdgeInsets.only(top: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          border: Border.all(color: Colors.red.shade200),
-                          borderRadius: BorderRadius.circular(8),
+                  // 비밀번호 입력
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    style: TextStyle(fontSize: 14.sp),
+                    onFieldSubmitted: (_) {
+                      // Done 버튼 클릭 시 키보드 숨기고 로그인 시도
+                      FocusScope.of(context).unfocus();
+                      _login();
+                    },
+                    decoration: InputDecoration(
+                      labelText: '비밀번호',
+                      labelStyle: TextStyle(fontSize: 14.sp),
+                      prefixIcon: Icon(Icons.lock, size: 20.sp),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          size: 20.sp,
                         ),
-                        child: Text(
-                          authProvider.error!,
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
+                        onPressed: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '비밀번호를 입력해주세요';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16.h),
+
+                  // 자동 로그인 체크박스
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _autoLogin,
+                        onChanged: (value) {
+                          setState(() {
+                            _autoLogin = value ?? false;
+                          });
+                        },
+                      ),
+                      Text('자동 로그인', style: TextStyle(fontSize: 14.sp)),
+                      const Spacer(),
+                    ],
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // 로그인 버튼
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      return ElevatedButton(
+                        onPressed: authProvider.isLoading ? null : _login,
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                        ),
+                        child: authProvider.isLoading
+                            ? SizedBox(
+                                height: 20.h,
+                                width: 20.w,
+                                child: const CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text('로그인', style: TextStyle(fontSize: 16.sp)),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 16.h),
+
+                  // 회원가입 링크
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterScreen(),
                         ),
                       );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
-              ],
+                    },
+                    child: Text(
+                      '계정이 없으신가요? 회원가입',
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
+                  ),
+
+                  // 에러 메시지
+                  Consumer<AuthProvider>(
+                    builder: (context, authProvider, child) {
+                      if (authProvider.error != null) {
+                        return Container(
+                          margin: EdgeInsets.only(top: 16.h),
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            border: Border.all(color: Colors.red.shade200),
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: Text(
+                            authProvider.error!,
+                            style: TextStyle(
+                              color: Colors.red.shade700,
+                              fontSize: 14.sp,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  SizedBox(height: 40.h),
+                ],
+              ),
             ),
           ),
         ),

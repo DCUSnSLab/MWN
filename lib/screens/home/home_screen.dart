@@ -160,8 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               tooltip: '계정 관리',
                             ),
                             IconButton(
-                              icon: const Icon(Icons.favorite),
-                              color: Colors.red,
+                              icon: const Icon(Icons.add_circle_outline),
+                              color: Theme.of(context).primaryColor,
                               onPressed: () {
                                 Navigator.push(
                                   context,
