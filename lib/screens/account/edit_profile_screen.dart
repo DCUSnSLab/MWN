@@ -204,6 +204,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                         return null;
                       },
+                      textInputAction: TextInputAction.done,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -223,6 +224,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                         return null;
                       },
+                      textInputAction: TextInputAction.done,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -234,6 +236,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         border: OutlineInputBorder(),
                         hintText: '010-1234-5678',
                       ),
+                      textInputAction: TextInputAction.done,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -244,6 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         border: OutlineInputBorder(),
                         hintText: '대구광역시',
                       ),
+                      textInputAction: TextInputAction.done,
                     ),
                   ],
                 ),
@@ -301,6 +305,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                         return null;
                       },
+                      textInputAction: TextInputAction.done,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -329,6 +334,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         }
                         return null;
                       },
+                      textInputAction: TextInputAction.done,
                     ),
                   ],
                 ),

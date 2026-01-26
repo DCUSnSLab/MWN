@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+                    textInputAction: TextInputAction.done,
                     style: TextStyle(fontSize: 14.sp),
                     decoration: InputDecoration(
                       labelText: '이메일',
@@ -140,6 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.email, size: 20.sp),
                       border: const OutlineInputBorder(),
                     ),
+
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return '이메일을 입력해주세요';

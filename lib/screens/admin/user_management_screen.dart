@@ -103,6 +103,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
+              textInputAction: TextInputAction.done,
             ),
           ),
 
@@ -382,7 +383,9 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                 decoration: const InputDecoration(
                   labelText: '이름',
                   border: OutlineInputBorder(),
+                  helperText: '최소 8자, 대문자/소문자/숫자 포함',
                 ),
+                textInputAction: TextInputAction.done,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return '이름을 입력하세요';
@@ -407,6 +410,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                   }
                   return null;
                 },
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -425,6 +429,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                   }
                   return null;
                 },
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -434,6 +439,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -442,6 +448,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                   labelText: '위치 (선택사항)',
                   border: OutlineInputBorder(),
                 ),
+                textInputAction: TextInputAction.done,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(

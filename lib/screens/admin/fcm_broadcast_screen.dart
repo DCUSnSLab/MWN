@@ -248,6 +248,7 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -264,6 +265,7 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -421,6 +423,7 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -448,6 +451,7 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -464,6 +468,7 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -650,6 +655,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -666,6 +672,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
                 }
                 return null;
               },
+              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 16),
             Row(

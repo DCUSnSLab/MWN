@@ -89,6 +89,7 @@ class _MarketSearchScreenState extends State<MarketSearchScreen> {
               ),
               onChanged: _performSearch,
               onSubmitted: _performSearch,
+              textInputAction: TextInputAction.done,
             ),
           ),
           

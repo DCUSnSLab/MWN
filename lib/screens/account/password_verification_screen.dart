@@ -125,6 +125,7 @@ class _PasswordVerificationScreenState extends State<PasswordVerificationScreen>
                     return null;
                   },
                   onFieldSubmitted: (_) => _verifyPassword(),
+                  textInputAction: TextInputAction.done,
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
