@@ -5,13 +5,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
-  const AlertHistoryScreen({Key? key}) : super(key: key);
+  final bool isAdmin; // 역할 구분 플래그
+
+  const AlertHistoryScreen({Key? key, this.isAdmin = false}) : super(key: key);
 
   @override
   _AlertHistoryScreenState createState() => _AlertHistoryScreenState();
 }
 
 class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
+  // ... (기존 변수 유지)
   List<dynamic> _logs = [];
   bool _isLoading = false;
   int _currentPage = 1;
@@ -55,7 +58,10 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
       final token = prefs.getString('access_token');
       final baseUrl = Config.baseUrl;
 
-      String url = '$baseUrl/api/admin/logs/alerts?page=$page&per_page=20';
+      // 역할에 따라 API 엔드포인트 분기
+      String endpoint = widget.isAdmin ? '/api/admin/logs/alerts' : '/api/user/logs/alerts';
+      String url = '$baseUrl$endpoint?page=$page&per_page=20';
+      
       if (_selectedMarketId != null) {
         url += '&market_id=$_selectedMarketId';
       }

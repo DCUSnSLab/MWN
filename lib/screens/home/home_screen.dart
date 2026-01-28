@@ -6,6 +6,7 @@ import '../../widgets/empty_watchlist_widget.dart';
 import '../../widgets/market_weather_widget.dart';
 import '../auth/login_screen.dart';
 import '../admin/admin_dashboard.dart';
+import '../admin/alert_history_screen.dart';
 import '../notifications/notification_history_screen.dart';
 import '../market/watchlist_management_screen.dart';
 import '../account/account_management_screen.dart';
@@ -69,6 +70,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         title: const Text('날씨 알림'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '내 알림 이력',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AlertHistoryScreen(isAdmin: false),
+                ),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {

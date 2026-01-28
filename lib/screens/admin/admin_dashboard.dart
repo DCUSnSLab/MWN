@@ -10,6 +10,7 @@ import 'fcm_broadcast_screen.dart';
 import 'weather_management_screen.dart';
 import 'weather_test_screen.dart';
 import '../home/home_screen.dart';
+import 'alert_history_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -330,6 +331,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('시스템 설정 기능 준비 중입니다')),
+                );
+              },
+            ),
+            _buildMenuCard(
+              title: '알림 발송 이력',
+              subtitle: '전체 알림 내역 조회',
+              icon: Icons.history,
+              color: Colors.blueGrey,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AlertHistoryScreen(isAdmin: true),
+                  ),
                 );
               },
             ),
