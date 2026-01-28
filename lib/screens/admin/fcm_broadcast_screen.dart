@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../models/user.dart';
+import 'alert_history_screen.dart';
 
 class FCMBroadcastScreen extends StatefulWidget {
   const FCMBroadcastScreen({super.key});
@@ -32,6 +33,18 @@ class _FCMBroadcastScreenState extends State<FCMBroadcastScreen> with SingleTick
         title: const Text('FCM 브로드캐스트'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '발송 이력',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AlertHistoryScreen()),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: Colors.white,
