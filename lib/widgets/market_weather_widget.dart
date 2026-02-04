@@ -15,9 +15,6 @@ class MarketWeatherWidget extends StatelessWidget {
   });
 
   String _getWeatherIcon(WeatherData weather) {
-    // SKY 코드: 1(맑음), 3(구름많음), 4(흐림)
-    // PTY 코드: 0(없음), 1(비), 2(비/눈), 3(눈), 4(소나기)
-    
     if (weather.pty != null && weather.pty != "0") {
       switch (weather.pty) {
         case "1":
@@ -48,48 +45,18 @@ class MarketWeatherWidget extends StatelessWidget {
     return "☀️";
   }
 
-  String _getWeatherDescription(WeatherData weather) {
-    if (weather.pty != null && weather.pty != "0") {
-      switch (weather.pty) {
-        case "1":
-          return "비";
-        case "2":
-          return "비/눈";
-        case "3":
-          return "눈";
-        case "4":
-          return "소나기";
-        default:
-          return "강수";
-      }
-    }
-    
-    if (weather.sky != null) {
-      switch (weather.sky) {
-        case "1":
-          return "맑음";
-        case "3":
-          return "구름많음";
-        case "4":
-          return "흐림";
-        default:
-          return "맑음";
-      }
-    }
-    
-    return "맑음";
-  }
-
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.all(16),
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 헤더
+            // 1. Header: Market Name and Address
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -100,179 +67,117 @@ class MarketWeatherWidget extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.location_on,
-                            size: 16,
+                            Icons.store_mall_directory,
+                            size: 18,
                             color: Theme.of(context).colorScheme.primary,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               market.marketName ?? '관심 시장',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      if (market.marketLocation != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          market.marketLocation!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                      const SizedBox(height: 4),
+                      // Address (using marketLocation)
+                      Row(
+                         children: [
+                           const SizedBox(width: 24), // Indent to align with text above
+                           Expanded(
+                             child: Text(
+                               market.marketLocation ?? '주소 정보 없음',
+                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                 color: Colors.grey[600],
+                               ),
+                               overflow: TextOverflow.ellipsis,
+                             ),
+                           ),
+                         ],
+                      ),
                     ],
                   ),
                 ),
                 if (onRefresh != null)
                   IconButton(
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Icons.refresh, size: 20, color: Colors.grey),
                     onPressed: onRefresh,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     tooltip: '새로고침',
                   ),
               ],
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 0.5),
+            const SizedBox(height: 12),
             
-            // 날씨 정보
-            if (weather != null) ...[
+            // 2. Weather Info: Single Row
+            if (weather != null)
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 날씨 아이콘과 온도
+                  // Icon
                   Text(
                     _getWeatherIcon(weather!),
-                    style: const TextStyle(fontSize: 48),
+                    style: const TextStyle(fontSize: 32),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (weather!.temp != null)
-                          Text(
-                            '${weather!.temp!.round()}°C',
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        Text(
-                          _getWeatherDescription(weather!),
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // 상세 날씨 정보
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        if (weather!.humidity != null)
-                          _buildWeatherDetail(
-                            '습도',
-                            '${weather!.humidity!.round()}%',
-                            Icons.water_drop,
-                          ),
-                        if (weather!.windSpeed != null)
-                          _buildWeatherDetail(
-                            '풍속',
-                            '${weather!.windSpeed!.toStringAsFixed(1)}m/s',
-                            Icons.air,
-                          ),
-                        if (weather!.pop != null)
-                          _buildWeatherDetail(
-                            '강수확률',
-                            '${weather!.pop!.round()}%',
-                            Icons.umbrella,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // 날씨 정보를 불러올 수 없는 경우
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.cloud_off,
-                      size: 48,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
+                  const SizedBox(width: 8),
+                  
+                  // Temp
+                  if (weather!.temp != null)
                     Text(
-                      '날씨 정보를 불러올 수 없습니다',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      '${weather!.temp!.round()}°C',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    if (onRefresh != null) ...[
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: onRefresh,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('다시 시도'),
-                      ),
-                    ],
+                  
+                  const Spacer(),
+                  
+                  // Humidity
+                  if (weather!.humidity != null) ...[
+                    const Icon(Icons.water_drop, size: 16, color: Colors.blueAccent),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${weather!.humidity!.round()}%',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                    ),
+                    const SizedBox(width: 12),
                   ],
+                  
+                  // Wind Speed
+                  if (weather!.windSpeed != null) ...[
+                    const Icon(Icons.air, size: 16, color: Colors.teal),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${weather!.windSpeed!.toStringAsFixed(1)}m/s',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                    ),
+                  ],
+                ],
+              )
+            else
+              // No Data
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    '날씨 정보를 불러올 수 없습니다',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
                 ),
               ),
-            ],
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildWeatherDetail(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Colors.grey[600],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

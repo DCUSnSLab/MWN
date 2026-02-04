@@ -10,6 +10,7 @@ import '../admin/alert_history_screen.dart';
 import '../notifications/notification_history_screen.dart';
 import '../market/watchlist_management_screen.dart';
 import '../account/account_management_screen.dart';
+import '../report/report_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -120,6 +121,19 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ReportScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.report_problem, color: Colors.white),
+        label: const Text('문제 신고', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.redAccent,
       ),
       body: RefreshIndicator(
         onRefresh: _loadMarketData,

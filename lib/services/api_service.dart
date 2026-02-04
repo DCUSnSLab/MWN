@@ -680,6 +680,48 @@ class ApiService {
     }
   }
 
+  // 신고 접수
+  Future<void> submitReport({
+    required int marketId,
+    required String reportType,
+    required String description,
+    required String imagePath, // 로컬 파일 경로
+  }) async {
+    // 1. MultipartRequest 생성
+    var request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/api/reports'),
+    );
+
+    // 2. 헤더 추가 (Authorization)
+    if (_accessToken != null) {
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+    }
+
+    // 3. 텍스트 필드 추가
+    request.fields['market_id'] = marketId.toString();
+    request.fields['report_type'] = reportType;
+    request.fields['description'] = description;
+
+    // 4. 파일 추가
+    if (imagePath.isNotEmpty) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        imagePath,
+      ));
+    }
+
+    // 5. 전송
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 201) {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // 토큰 자동 갱신을 포함한 인증된 요청
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,
