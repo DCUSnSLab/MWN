@@ -101,7 +101,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     return null;
                   },
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 
@@ -123,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     return null;
                   },
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 
@@ -148,7 +148,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     helperText: '최소 8자, 대문자/소문자/숫자 포함',
                   ),
                   validator: _validatePassword,
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 
@@ -180,7 +180,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     return null;
                   },
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 
@@ -194,7 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     border: OutlineInputBorder(),
                     helperText: '선택사항',
                   ),
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
 

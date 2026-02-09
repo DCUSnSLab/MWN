@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
@@ -13,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _storage = const FlutterSecureStorage();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -33,10 +34,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadSavedCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('saved_email');
-    final savedPassword = prefs.getString('saved_password');
-    final autoLogin = prefs.getBool('auto_login') ?? false;
+    final savedEmail = await _storage.read(key: 'saved_email');
+    final savedPassword = await _storage.read(key: 'saved_password');
+    final autoLoginStr = await _storage.read(key: 'auto_login');
+    final autoLogin = autoLoginStr == 'true';
 
     if (savedEmail != null && savedPassword != null && autoLogin) {
       setState(() {
@@ -44,19 +45,25 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text = savedPassword;
         _autoLogin = autoLogin;
       });
+
+      // UI 렌더링 후 자동 로그인 시도
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _login();
+        }
+      });
     }
   }
 
   Future<void> _saveCredentials() async {
-    final prefs = await SharedPreferences.getInstance();
     if (_autoLogin) {
-      await prefs.setString('saved_email', _emailController.text.trim());
-      await prefs.setString('saved_password', _passwordController.text);
-      await prefs.setBool('auto_login', true);
+      await _storage.write(key: 'saved_email', value: _emailController.text.trim());
+      await _storage.write(key: 'saved_password', value: _passwordController.text);
+      await _storage.write(key: 'auto_login', value: 'true');
     } else {
-      await prefs.remove('saved_email');
-      await prefs.remove('saved_password');
-      await prefs.setBool('auto_login', false);
+      await _storage.delete(key: 'saved_email');
+      await _storage.delete(key: 'saved_password');
+      await _storage.delete(key: 'auto_login');
     }
   }
 
@@ -132,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
+                    textInputAction: TextInputAction.next,
                     style: TextStyle(fontSize: 14.sp),
                     decoration: InputDecoration(
                       labelText: '이메일',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../models/weather.dart';
@@ -57,12 +58,28 @@ class ApiService {
   // HTTP 응답 처리
   T _handleResponse<T>(http.Response response, T Function(Map<String, dynamic>) fromJson) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      return fromJson(data);
+      if (response.body.isEmpty) {
+        throw ApiException('응답 본문이 비어있습니다.', response.statusCode);
+      }
+      try {
+        // UTF-8 디코딩 처리 (한글 깨짐 방지)
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> data = json.decode(decodedBody);
+        return fromJson(data);
+      } catch (e) {
+        print('❌ JSON 파싱 오류: $e');
+        print('📄 응답 본문: ${utf8.decode(response.bodyBytes)}');
+        rethrow;
+      }
     } else {
-      final Map<String, dynamic> errorData = json.decode(response.body);
-      final apiError = ApiError.fromJson(errorData);
-      throw ApiException(apiError.error, response.statusCode);
+      try {
+        final String decodedBody = utf8.decode(response.bodyBytes);
+        final Map<String, dynamic> errorData = json.decode(decodedBody);
+        final apiError = ApiError.fromJson(errorData);
+        throw ApiException(apiError.error, response.statusCode);
+      } catch (_) {
+        throw ApiException('오류 발생 (상태 코드: ${response.statusCode})', response.statusCode);
+      }
     }
   }
 
@@ -104,10 +121,10 @@ class ApiService {
 
   // 프로필 조회
   Future<User> getProfile() async {
-    final response = await http.get(
+    final response = await _authenticatedRequest(() => http.get(
       Uri.parse('$baseUrl/api/auth/me'),
       headers: _authHeaders,
-    );
+    ));
 
     final Map<String, dynamic> data = json.decode(response.body);
     if (response.statusCode == 200) {
@@ -680,6 +697,23 @@ class ApiService {
     }
   }
 
+  // 신고 목록 조회 (관리자)
+  Future<List<Map<String, dynamic>>> getReports() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/reports'),
+      headers: _authHeaders,
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final Map<String, dynamic> errorData = json.decode(response.body);
+      final apiError = ApiError.fromJson(errorData);
+      throw ApiException(apiError.error, response.statusCode);
+    }
+  }
+
   // 신고 접수
   Future<void> submitReport({
     required int marketId,
@@ -708,7 +742,9 @@ class ApiService {
       request.files.add(await http.MultipartFile.fromPath(
         'image',
         imagePath,
+        contentType: MediaType('image', 'jpeg'),
       ));
+
     }
 
     // 5. 전송

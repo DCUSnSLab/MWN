@@ -156,6 +156,51 @@ class MarketService {
     }
   }
 
+  // 전체 시장 중 현재 위치에서 가까운 순으로 N개 가져오기 (추천용)
+  Future<List<Market>> getNearbyMarketsFromAll({int limit = 5}) async {
+    try {
+      // 1. 현재 위치 가져오기
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) {
+        print('⚠️ 현재 위치를 가져올 수 없습니다');
+        return [];
+      }
+
+      // 2. 전체 활성 시장 목록 가져오기
+      // TODO: API가 전체 목록을 주지 않고 페이징한다면, 
+      // 위치 기반 검색 API가 필요할 수 있음.
+      // 일단은 getMarkets로 가져와서 클라이언트에서 계산 (데이터가 많지 않다고 가정)
+      final allMarkets = await _apiService.getMarkets(isActive: true, perPage: 1000);
+      
+      if (allMarkets.isEmpty) return [];
+
+      // 3. 거리 계산 및 정렬
+      final marketsWithDistance = allMarkets.where((m) => m.hasCoordinates).map((market) {
+        final distance = calculateDistance(
+          position.latitude,
+          position.longitude,
+          market.latitude!,
+          market.longitude!,
+        );
+        return {'market': market, 'distance': distance};
+      }).toList();
+
+      marketsWithDistance.sort((a, b) =>
+        (a['distance'] as double).compareTo(b['distance'] as double)
+      );
+
+      // 4. 상위 N개 반환
+      return marketsWithDistance
+          .take(limit)
+          .map((item) => item['market'] as Market)
+          .toList();
+          
+    } catch (e) {
+      print('❌ 전체 시장 중 가까운 시장 찾기 오류: $e');
+      return [];
+    }
+  }
+
   // 여러 시장의 날씨 정보를 한 번에 가져오기
   Future<Map<int, WeatherData>> getMultipleMarketsWeather(
     List<UserMarketInterest> markets

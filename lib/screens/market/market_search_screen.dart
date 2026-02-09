@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/market.dart';
@@ -12,28 +13,48 @@ class MarketSearchScreen extends StatefulWidget {
 
 class _MarketSearchScreenState extends State<MarketSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
   bool _isSearching = false;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  void _performSearch(String query) async {
+  Future<void> _performSearch(String query) async {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
     if (query.trim().isEmpty) {
-      context.read<MarketProvider>().clearSearchResults();
+      if (mounted) {
+        context.read<MarketProvider>().clearSearchResults();
+      }
       return;
     }
 
-    setState(() {
-      _isSearching = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isSearching = true;
+      });
+    }
 
-    await context.read<MarketProvider>().searchMarkets(query);
+    if (mounted) {
+      await context.read<MarketProvider>().searchMarkets(query);
+    }
 
-    setState(() {
-      _isSearching = false;
+    if (mounted) {
+      setState(() {
+        _isSearching = false;
+      });
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
     });
   }
 
@@ -81,13 +102,14 @@ class _MarketSearchScreenState extends State<MarketSearchScreen> {
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
+                          if (_debounce?.isActive ?? false) _debounce!.cancel();
                           context.read<MarketProvider>().clearSearchResults();
                         },
                       )
                     : null,
                 border: const OutlineInputBorder(),
               ),
-              onChanged: _performSearch,
+              onChanged: _onSearchChanged,
               onSubmitted: _performSearch,
               textInputAction: TextInputAction.done,
             ),

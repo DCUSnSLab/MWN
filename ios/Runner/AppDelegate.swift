@@ -3,12 +3,15 @@ import UIKit
 import Firebase
 import FirebaseMessaging
 
+import GoogleMaps
+
 @main
 @objc class AppDelegate: FlutterAppDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    GMSServices.provideAPIKey("AIzaSyBi_lmtSEkJrMZCecBJ8btF2GRWSdjz4qo")
     FirebaseApp.configure()
     
     // FCM을 위한 원격 알림 등록

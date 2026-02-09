@@ -11,6 +11,7 @@ import 'weather_management_screen.dart';
 import 'weather_test_screen.dart';
 import '../home/home_screen.dart';
 import 'alert_history_screen.dart';
+import 'report_list_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -344,6 +345,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const AlertHistoryScreen(isAdmin: true),
+                  ),
+                );
+              },
+            ),
+            _buildMenuCard(
+              title: '신고 내역 관리',
+              subtitle: '접수된 신고 및 이미지 조회',
+              icon: Icons.report_problem_outlined,
+              color: Colors.redAccent,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ReportListScreen(),
                   ),
                 );
               },

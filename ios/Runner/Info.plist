@@ -30,6 +30,10 @@
 	<string>날씨 정보를 제공하기 위해 현재 위치가 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>날씨 정보를 제공하기 위해 현재 위치가 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>현장 상황 신고를 위해 카메라 접근 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>현장 상황 신고를 위해 사진 라이브러리 접근 권한이 필요합니다.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

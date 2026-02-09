@@ -6,12 +6,14 @@ class MarketWeatherWidget extends StatelessWidget {
   final UserMarketInterest market;
   final WeatherData? weather;
   final VoidCallback? onRefresh;
+  final VoidCallback? onTap;
 
   const MarketWeatherWidget({
     super.key,
     required this.market,
     this.weather,
     this.onRefresh,
+    this.onTap,
   });
 
   String _getWeatherIcon(WeatherData weather) {
@@ -51,7 +53,10 @@ class MarketWeatherWidget extends StatelessWidget {
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,6 +181,7 @@ class MarketWeatherWidget extends StatelessWidget {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

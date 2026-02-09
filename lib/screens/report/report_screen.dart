@@ -6,7 +6,14 @@ import '../../services/api_service.dart';
 import '../../models/market.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({Key? key}) : super(key: key);
+  final int? preSelectedMarketId;
+  final String? preSelectedMarketName;
+
+  const ReportScreen({
+    Key? key, 
+    this.preSelectedMarketId, 
+    this.preSelectedMarketName
+  }) : super(key: key);
 
   @override
   _ReportScreenState createState() => _ReportScreenState();
@@ -45,6 +52,17 @@ class _ReportScreenState extends State<ReportScreen> {
       final markets = await _apiService.getMarkets(isActive: true);
       setState(() {
         _markets = markets;
+        
+        // If a market was pre-selected, find and set it
+        if (widget.preSelectedMarketId != null) {
+          try {
+            _selectedMarket = _markets.firstWhere(
+              (m) => m.id == widget.preSelectedMarketId
+            );
+          } catch (_) {
+            // Pre-selected market might not be in the list
+          }
+        }
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,7 +94,11 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Future<void> _submitReport() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedMarket == null) {
+    
+    // Use selected market OR pre-selected market
+    final int? marketId = _selectedMarket?.id ?? widget.preSelectedMarketId;
+    
+    if (marketId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('신고할 시장을 선택해주세요.')),
       );
@@ -95,7 +117,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     try {
       await _apiService.submitReport(
-        marketId: _selectedMarket!.id,
+        marketId: marketId,
         reportType: _selectedReportType!,
         description: _descriptionController.text,
         imagePath: _imageFile != null ? _imageFile!.path : '',
@@ -148,27 +170,49 @@ class _ReportScreenState extends State<ReportScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // 1. 시장 선택
-                    DropdownButtonFormField<Market>(
-                      value: _selectedMarket,
-                      decoration: const InputDecoration(
-                        labelText: '시장 선택',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.store),
+                    if (widget.preSelectedMarketId != null)
+                      Container(
+                        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.store, color: Colors.grey),
+                            SizedBox(width: 12.w),
+                            Expanded(
+                              child: Text(
+                                widget.preSelectedMarketName ?? '선택된 시장',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            const Icon(Icons.lock, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<Market>(
+                        value: _selectedMarket,
+                        decoration: const InputDecoration(
+                          labelText: '시장 선택',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.store),
+                        ),
+                        items: _markets.map((market) {
+                          return DropdownMenuItem(
+                            value: market,
+                            child: Text(market.name),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedMarket = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? '시장을 선택해주세요.' : null,
                       ),
-                      items: _markets.map((market) {
-                        return DropdownMenuItem(
-                          value: market,
-                          child: Text(market.name),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedMarket = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? '시장을 선택해주세요.' : null,
-                    ),
                     SizedBox(height: 16.h),
 
                     // 2. 신고 유형 선택
