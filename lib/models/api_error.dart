@@ -1,15 +1,18 @@
-import 'package:json_annotation/json_annotation.dart';
 
-part 'api_error.g.dart';
-
-@JsonSerializable()
 class ApiError {
   final String error;
 
   ApiError({required this.error});
 
-  factory ApiError.fromJson(Map<String, dynamic> json) => _$ApiErrorFromJson(json);
-  Map<String, dynamic> toJson() => _$ApiErrorToJson(this);
+  factory ApiError.fromJson(Map<String, dynamic> json) {
+    return ApiError(
+      error: json['error'] as String? ?? json['message'] as String? ?? '알 수 없는 오류가 발생했습니다.',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'error': error,
+  };
 }
 
 class ApiException implements Exception {

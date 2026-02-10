@@ -156,6 +156,50 @@ class MarketService {
     }
   }
 
+  // 현재 위치에서 가까운 순으로 모든 관심 시장 가져오기 (페이지네이션용)
+  Future<List<UserMarketInterest>> getAllSortedWatchedMarkets() async {
+    try {
+      // 현재 위치 가져오기
+      final position = await _locationService.getCurrentPosition();
+      if (position == null) return [];
+
+      // 관심 시장 목록 가져오기
+      final watchlist = await getWatchlist();
+      if (watchlist.isEmpty) return [];
+
+      // 좌표가 있는 관심 시장들만 필터링
+      final marketsWithCoordinates = watchlist.where((interest) {
+        return interest.marketCoordinates?.hasCoordinates == true;
+      }).toList();
+
+      if (marketsWithCoordinates.isEmpty) return [];
+
+      // 각 시장의 거리 계산 및 정렬
+      final marketsWithDistance = marketsWithCoordinates.map((interest) {
+        final coords = interest.marketCoordinates!;
+        final distance = calculateDistance(
+          position.latitude,
+          position.longitude,
+          coords.latitude!,
+          coords.longitude!,
+        );
+        return {'interest': interest, 'distance': distance};
+      }).toList();
+
+      // 거리순으로 정렬
+      marketsWithDistance.sort((a, b) =>
+        (a['distance'] as double).compareTo(b['distance'] as double)
+      );
+
+      return marketsWithDistance
+          .map((item) => item['interest'] as UserMarketInterest)
+          .toList();
+    } catch (e) {
+      print('❌ 전체 정렬 시장 조회 오류: $e');
+      return [];
+    }
+  }
+
   // 전체 시장 중 현재 위치에서 가까운 순으로 N개 가져오기 (추천용)
   Future<List<Market>> getNearbyMarketsFromAll({int limit = 5}) async {
     try {
@@ -222,8 +266,9 @@ class MarketService {
 
           final weather = await _apiService.getCurrentWeather(request);
           return {'marketId': interest.marketId, 'weather': weather};
-        } catch (e) {
-          print('❌ ${interest.marketName} 날씨 조회 실패: $e');
+        } catch (e, stackTrace) {
+          print('❌ ${interest.marketName} (${interest.marketId}) 날씨 조회 실패: $e');
+          print(stackTrace);
           return null;
         }
       });

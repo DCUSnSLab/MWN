@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/market_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/fcm_service.dart';
 import '../../models/user.dart';
@@ -330,8 +331,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               icon: Icons.settings_outlined,
               color: Colors.grey,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('시스템 설정 기능 준비 중입니다')),
+                showDialog(
+                  context: context,
+                  builder: (context) => const _SystemSettingsDialog(),
                 );
               },
             ),
@@ -497,12 +499,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
       await Provider.of<AuthProvider>(context, listen: false).logout();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('로그아웃 실패: $e')),
-        );
-      }
-    }
-  }
+                showDialog(
+                  context: context,
+                  builder: (context) => const _SystemSettingsDialog(),
+                );
+              }
+            }
+          }
 
   void _goToUserMode() {
     Navigator.of(context).pushReplacement(
@@ -511,4 +514,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
 
+}
+
+class _SystemSettingsDialog extends StatelessWidget {
+  const _SystemSettingsDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('시스템 설정'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Consumer<MarketProvider>(
+            builder: (context, provider, child) {
+              return SwitchListTile(
+                title: const Text('개발자 디버그 모드'),
+                subtitle: const Text('시장 ID, 좌표 등 상세 정보를 표시합니다'),
+                value: provider.isDebugMode,
+                onChanged: (value) {
+                  provider.toggleDebugMode();
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
+    );
+  }
 }

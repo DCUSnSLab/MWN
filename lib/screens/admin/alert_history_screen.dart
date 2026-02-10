@@ -213,7 +213,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
                 if (log['forecast_time'] != null)
                   _buildInfoRow('예보 시점', log['forecast_time']),
                 if (log['temperature'] != null)
-                  _buildInfoRow('기온', '${log['temperature']}°C'),
+                  _buildInfoRow('기온', '${(log['temperature'] as num).toStringAsFixed(1)}°C'),
                 if (log['wind_speed'] != null)
                     _buildInfoRow('풍속', '${log['wind_speed']}m/s'),
                 if (log['precipitation_type'] != null)

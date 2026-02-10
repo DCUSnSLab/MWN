@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/market.dart';
 import '../models/weather.dart';
+import '../services/location_service.dart';
 
 class MarketMapWidget extends StatefulWidget {
   final List<UserMarketInterest> markets;
@@ -52,7 +53,7 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
         // 날씨 정보가 있으면 스니펫에 포함
         String snippet = market.marketLocation ?? '';
         if (weather != null) {
-          snippet += '\n🌡️ ${weather.temp ?? '-'}°C  ${weather.skyCondition}';
+          snippet += '\n🌡️ ${weather.temp != null ? weather.temp!.toStringAsFixed(1) : '-'}°C  ${weather.skyCondition}';
         }
 
         final marker = Marker(
@@ -82,13 +83,74 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
         _mapController = controller;
         // 마커가 있으면 마커들이 다 보이도록 카메라 이동
         if (_markers.isNotEmpty) {
-          _fitBounds();
+          _adjustCameraBounds();
         }
       },
     );
   }
 
-  void _fitBounds() {
+  Future<void> _adjustCameraBounds() async {
+    if (_markers.isEmpty) return;
+
+    try {
+      final position = await LocationService().getCurrentPosition();
+      
+      // 위치 권한이 없거나 위치를 가져올 수 없는 경우: 기존 로직대로 모든 마커를 보여줌
+      if (position == null) {
+        _fitAllMarkers();
+        return;
+      }
+
+      final userLatLng = LatLng(position.latitude, position.longitude);
+      
+      // 가장 가까운 시장 찾기
+      double minDistance = double.infinity;
+      LatLng? nearestMarketLatLng;
+
+      for (var marker in _markers) {
+        final distance = LocationService().calculateDistance(
+          userLatLng.latitude,
+          userLatLng.longitude,
+          marker.position.latitude,
+          marker.position.longitude,
+        );
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestMarketLatLng = marker.position;
+        }
+      }
+
+      if (nearestMarketLatLng != null) {
+        // 사용자와 가장 가까운 시장을 포함하는 영역 계산
+        final double minLat = userLatLng.latitude < nearestMarketLatLng.latitude 
+            ? userLatLng.latitude : nearestMarketLatLng.latitude;
+        final double maxLat = userLatLng.latitude > nearestMarketLatLng.latitude 
+            ? userLatLng.latitude : nearestMarketLatLng.latitude;
+        final double minLng = userLatLng.longitude < nearestMarketLatLng.longitude 
+            ? userLatLng.longitude : nearestMarketLatLng.longitude;
+        final double maxLng = userLatLng.longitude > nearestMarketLatLng.longitude 
+            ? userLatLng.longitude : nearestMarketLatLng.longitude;
+
+        _mapController.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(minLat, minLng),
+              northeast: LatLng(maxLat, maxLng),
+            ),
+            100.0, // padding (좀 더 넉넉하게)
+          ),
+        );
+      } else {
+        _fitAllMarkers();
+      }
+    } catch (e) {
+      print('카메라 이동 중 오류: $e');
+      _fitAllMarkers();
+    }
+  }
+
+  void _fitAllMarkers() {
     if (_markers.isEmpty) return;
 
     double minLat = 90.0;

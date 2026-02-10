@@ -25,15 +25,31 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _showMap = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadMarketData();
+    _scrollController.addListener(_onScroll);
+    
     // 화면이 그려진 후 추천 로직 실행
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowRecommendations();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      // 스크롤이 바닥에 가까워지면 더 불러오기
+      context.read<MarketProvider>().loadMoreMarkets();
+    }
   }
 
   Future<void> _checkAndShowRecommendations() async {
@@ -289,6 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : RefreshIndicator(
               onRefresh: _loadMarketData,
               child: SingleChildScrollView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -332,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Consumer<MarketProvider>(
                       builder: (context, marketProvider, child) {
-                        if (marketProvider.isLoading) {
+                        if (marketProvider.isLoading && marketProvider.nearbyMarkets.isEmpty) {
                           return const Card(
                             child: Padding(
                               padding: EdgeInsets.all(24.0),
@@ -343,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         }
 
-                        if (marketProvider.error != null) {
+                        if (marketProvider.error != null && marketProvider.nearbyMarkets.isEmpty) {
                           return Card(
                             child: Padding(
                               padding: const EdgeInsets.all(24.0),
@@ -383,38 +400,45 @@ class _HomeScreenState extends State<HomeScreen> {
                           return const EmptyWatchlistWidget();
                         }
 
-                        // 가까운 시장 5개 표시
+                        // 가까운 시장 목록 표시
                         if (marketProvider.nearbyMarkets.isNotEmpty) {
                           return Column(
-                            children: marketProvider.nearbyMarkets.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final market = entry.value;
-                              final weather = marketProvider.nearbyMarketsWeather[market.marketId];
+                            children: [
+                              ...marketProvider.nearbyMarkets.asMap().entries.map((entry) {
+                                final market = entry.value;
+                                final weather = marketProvider.nearbyMarketsWeather[market.marketId];
 
-                              return Padding(
-                                padding: EdgeInsets.only(
-                                  bottom: index < marketProvider.nearbyMarkets.length - 1 ? 16.0 : 0,
-                                ),
-                                child: MarketWeatherWidget(
-                                  market: market,
-                                  weather: weather,
-                                  onRefresh: () {
-                                    marketProvider.updateNearbyMarketsWeather();
-                                  },
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => MarketDetailScreen(
-                                          market: market,
-                                          weather: weather,
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: MarketWeatherWidget(
+                                    market: market,
+                                    weather: weather,
+                                    onRefresh: () {
+                                      marketProvider.updateNearbyMarketsWeather(init: false); // 전체 새로고침은 비용이 크므로, 개별로 하거나 전체 갱신 호출
+                                    },
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => MarketDetailScreen(
+                                            market: market,
+                                            weather: weather,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
+                                      );
+                                    },
+                                  ),
+                                );
+                              }),
+                              
+                              if (marketProvider.hasMoreMarkets)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
                                 ),
-                              );
-                            }).toList(),
+                            ],
                           );
                         }
 

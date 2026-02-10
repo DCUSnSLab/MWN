@@ -77,8 +77,11 @@ class ApiService {
         final Map<String, dynamic> errorData = json.decode(decodedBody);
         final apiError = ApiError.fromJson(errorData);
         throw ApiException(apiError.error, response.statusCode);
-      } catch (_) {
-        throw ApiException('오류 발생 (상태 코드: ${response.statusCode})', response.statusCode);
+      } catch (e) {
+        final String rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
+        print('❌ API Error Parsing Failed: $e');
+        print('📄 Raw Error Body: $rawBody');
+        throw ApiException('오류 발생 (${response.statusCode}): $rawBody', response.statusCode);
       }
     }
   }
@@ -182,6 +185,7 @@ class ApiService {
     if (currentWeather != null) {
       return currentWeather;
     } else {
+      print('❌ 날씨 데이터 없음: ${weatherResponse.status}');
       throw ApiException('날씨 데이터를 가져올 수 없습니다.');
     }
   }
