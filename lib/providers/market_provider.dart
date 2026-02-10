@@ -65,8 +65,9 @@ class MarketProvider with ChangeNotifier {
 
       // 가까운 시장 목록 및 날씨 정보 업데이트 (초기화 포함)
       if (_watchlist.isNotEmpty) {
-        // 초기 로드 시 visibleCount 초기화
+        // 초기 로드 시 visibleCount 초기화 및 날씨 캐시 초기화 (새로고침 시 최신 데이터 요청)
         _visibleCount = 5;
+        _nearbyMarketsWeather = {};
         await updateNearbyMarketsWeather(init: true);
       } else {
         _allNearbyMarkets = [];
@@ -159,14 +160,19 @@ class MarketProvider with ChangeNotifier {
       _nearbyMarkets = _allNearbyMarkets.take(_visibleCount).toList();
       print('✅ 현재 보여줄 시장: ${_nearbyMarkets.length}개 / 전체 ${_allNearbyMarkets.length}개');
 
-      // 보여줄 시장들의 날씨 정보 가져오기
-      if (_nearbyMarkets.isNotEmpty) {
-        // 이미 날씨 정보가 있는 시장은 제외하고 가져올 수도 있지만, 
-        // 최신 정보를 위해 보여지는 시장들은 모두 업데이트
-        final newWeatherMap = await _marketService.getMultipleMarketsWeather(_nearbyMarkets);
+      // 날씨 정보가 없는 시장만 필터링 (불필요한 중복 호출 방지)
+      final marketsToFetch = _nearbyMarkets.where((market) {
+        return !_nearbyMarketsWeather.containsKey(market.marketId);
+      }).toList();
+
+      if (marketsToFetch.isNotEmpty) {
+        print('Cloud: ${marketsToFetch.length}개 시장의 날씨 정보를 새로 가져옵니다.');
+        final newWeatherMap = await _marketService.getMultipleMarketsWeather(marketsToFetch);
         
-        // 기존 맵에 병합 (기존 데이터 유지하면서 업데이트)
+        // 기존 맵에 병합
         _nearbyMarketsWeather.addAll(newWeatherMap);
+      } else {
+        print('Skip: 보여줄 모든 시장의 날씨 정보가 이미 있습니다.');
       }
 
       notifyListeners();
