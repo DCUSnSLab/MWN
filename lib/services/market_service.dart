@@ -255,12 +255,12 @@ class MarketService {
       // 각 시장의 날씨를 병렬로 조회
       final weatherFutures = markets.map((interest) async {
         final coords = interest.marketCoordinates;
-        if (coords == null || !coords.hasCoordinates) return null;
+        if (coords == null || !coords.hasGridCoordinates) return null;
 
         try {
           final request = WeatherRequest(
-            latitude: coords.latitude!,
-            longitude: coords.longitude!,
+            nx: coords.nx!,
+            ny: coords.ny!,
             locationName: interest.marketName ?? '관심 시장',
           );
 
@@ -296,12 +296,12 @@ class MarketService {
   // 특정 시장의 현재 날씨 조회
   Future<WeatherData?> getMarketCurrentWeather(UserMarketInterest interest) async {
     final coords = interest.marketCoordinates;
-    if (coords == null || !coords.hasCoordinates) return null;
+    if (coords == null || !coords.hasGridCoordinates) return null;
 
     try {
       final request = WeatherRequest(
-        latitude: coords.latitude!,
-        longitude: coords.longitude!,
+        nx: coords.nx!,
+        ny: coords.ny!,
         locationName: interest.marketName ?? '관심 시장',
       );
 
@@ -315,12 +315,12 @@ class MarketService {
   // 특정 시장의 날씨 예보 조회
   Future<List<WeatherData>> getMarketForecastWeather(UserMarketInterest interest) async {
     final coords = interest.marketCoordinates;
-    if (coords == null || !coords.hasCoordinates) return [];
+    if (coords == null || !coords.hasGridCoordinates) return [];
 
     try {
       final request = WeatherRequest(
-        latitude: coords.latitude!,
-        longitude: coords.longitude!,
+        nx: coords.nx!,
+        ny: coords.ny!,
         locationName: interest.marketName ?? '관심 시장',
       );
 

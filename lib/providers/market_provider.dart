@@ -16,7 +16,8 @@ class MarketProvider with ChangeNotifier {
   String? _error;
 
   List<UserMarketInterest> _allNearbyMarkets = []; // 전체 정렬된 시장 목록
-  int _visibleCount = 5; // 현재 보여주는 시장 개수 (기본 5개)
+  int _visibleCount = 10; // 현재 보여주는 시장 개수 (최대 10개)
+  static const int _maxVisibleCount = 10; // 최대 표시 개수
   bool _hasMoreMarkets = false; // 더 불러올 시장이 있는지 여부
   bool _isDebugMode = false; // 디버그 모드 상태
 
@@ -66,7 +67,7 @@ class MarketProvider with ChangeNotifier {
       // 가까운 시장 목록 및 날씨 정보 업데이트 (초기화 포함)
       if (_watchlist.isNotEmpty) {
         // 초기 로드 시 visibleCount 초기화 및 날씨 캐시 초기화 (새로고침 시 최신 데이터 요청)
-        _visibleCount = 5;
+        _visibleCount = _maxVisibleCount;
         _nearbyMarketsWeather = {};
         await updateNearbyMarketsWeather(init: true);
       } else {
@@ -148,13 +149,14 @@ class MarketProvider with ChangeNotifier {
         _allNearbyMarkets = await _marketService.getAllSortedWatchedMarkets();
       }
 
-      // 보여줄 시장 개수 조정
-      if (_visibleCount > _allNearbyMarkets.length) {
-        _visibleCount = _allNearbyMarkets.length;
+      // 보여줄 시장 개수 조정 (최대 10개로 제한)
+      final effectiveMax = _allNearbyMarkets.length < _maxVisibleCount ? _allNearbyMarkets.length : _maxVisibleCount;
+      if (_visibleCount > effectiveMax) {
+        _visibleCount = effectiveMax;
       }
       
-      // 더 보여줄 시장이 있는지 확인
-      _hasMoreMarkets = _visibleCount < _allNearbyMarkets.length;
+      // 최대 10개까지만 표시하므로 더 보기 비활성화
+      _hasMoreMarkets = false;
 
       // 현재 보여줄 목록 슬라이싱
       _nearbyMarkets = _allNearbyMarkets.take(_visibleCount).toList();

@@ -94,14 +94,14 @@ class WeatherData {
 
 @JsonSerializable()
 class WeatherRequest {
-  final double latitude;
-  final double longitude;
+  final int nx;
+  final int ny;
   @JsonKey(name: 'location_name')
   final String? locationName;
 
   WeatherRequest({
-    required this.latitude,
-    required this.longitude,
+    required this.nx,
+    required this.ny,
     this.locationName,
   });
 

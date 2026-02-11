@@ -53,15 +53,15 @@ Map<String, dynamic> _$WeatherDataToJson(WeatherData instance) =>
 
 WeatherRequest _$WeatherRequestFromJson(Map<String, dynamic> json) =>
     WeatherRequest(
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      nx: (json['nx'] as num).toInt(),
+      ny: (json['ny'] as num).toInt(),
       locationName: json['location_name'] as String?,
     );
 
 Map<String, dynamic> _$WeatherRequestToJson(WeatherRequest instance) =>
     <String, dynamic>{
-      'latitude': instance.latitude,
-      'longitude': instance.longitude,
+      'nx': instance.nx,
+      'ny': instance.ny,
       'location_name': instance.locationName,
     };
 
