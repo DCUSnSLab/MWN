@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/market.dart';
@@ -87,31 +88,94 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     }
   }
 
-  // 날씨 상태에 따른 이모지 반환
-  String _getWeatherEmoji(WeatherData weather) {
-    switch (weather.pty) {
-      case '1': return '🌧️';
-      case '2': return '🌨️';
-      case '3': return '❄️';
-      case '4': return '🌦️';
+  // 날씨 상태 텍스트 반환 (모델의 기존 getter 활용 및 디버깅)
+  String _getWeatherLabel(WeatherData weather) {
+    // 강수가 있으면 강수 형태 표시
+    if (weather.pty != null && weather.pty != '0') {
+      return weather.precipitationType;
     }
-    switch (weather.sky) {
-      case '1': return '☀️';
-      case '3': return '⛅';
-      case '4': return '☁️';
+    // 하늘 상태 표시 (유효한 값만)
+    if (['1', '3', '4'].contains(weather.sky)) {
+      return weather.skyCondition;
     }
-    return '🌡️';
+    // 디버깅을 위해 값이 이상하면 괄호 안에 표시 (예: "알 수 없음(null)")
+    return '알 수 없음(${weather.sky ?? "null"})';
+  }
+
+  // 날씨 아이콘 그리기
+  void _drawWeatherIcon(Canvas canvas, Offset offset, double size, WeatherData weather) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    
+    // 강수 여부 확인
+    bool hasPrecipitation = weather.pty != null && weather.pty != '0';
+    
+    if (hasPrecipitation) {
+      // 구름 베이스
+      paint.color = Colors.grey[300]!;
+      canvas.drawCircle(offset + Offset(size * 0.3, size * 0.5), size * 0.25, paint);
+      canvas.drawCircle(offset + Offset(size * 0.5, size * 0.4), size * 0.3, paint);
+      canvas.drawCircle(offset + Offset(size * 0.7, size * 0.5), size * 0.25, paint);
+      
+      // 강수 형태
+      paint.strokeWidth = size * 0.1;
+      paint.strokeCap = StrokeCap.round;
+      
+      if (weather.pty == '1' || weather.pty == '4') { // 비 또는 소나기
+        paint.color = Colors.blue[300]!;
+        paint.style = PaintingStyle.stroke;
+        final path = Path();
+        path.moveTo(offset.dx + size * 0.3, offset.dy + size * 0.7);
+        path.lineTo(offset.dx + size * 0.2, offset.dy + size * 0.9);
+        path.moveTo(offset.dx + size * 0.5, offset.dy + size * 0.7);
+        path.lineTo(offset.dx + size * 0.4, offset.dy + size * 0.9);
+        path.moveTo(offset.dx + size * 0.7, offset.dy + size * 0.7);
+        path.lineTo(offset.dx + size * 0.6, offset.dy + size * 0.9);
+        canvas.drawPath(path, paint);
+      } else if (weather.pty == '3') { // 눈
+        paint.color = Colors.white;
+        paint.style = PaintingStyle.fill;
+        canvas.drawCircle(offset + Offset(size * 0.3, size * 0.8), size * 0.08, paint);
+        canvas.drawCircle(offset + Offset(size * 0.5, size * 0.8), size * 0.08, paint);
+        canvas.drawCircle(offset + Offset(size * 0.7, size * 0.8), size * 0.08, paint);
+      } else { // 비/눈 (진눈깨비)
+        paint.color = Colors.blue[300]!;
+        paint.style = PaintingStyle.stroke;
+        canvas.drawLine(Offset(offset.dx + size * 0.3, offset.dy + size * 0.7), 
+                       Offset(offset.dx + size * 0.2, offset.dy + size * 0.9), paint);
+        paint.style = PaintingStyle.fill;
+        paint.color = Colors.white;
+        canvas.drawCircle(offset + Offset(size * 0.6, size * 0.8), size * 0.08, paint);
+      }
+    } else {
+      // 하늘 상태
+      if (weather.sky == '1') { // 맑음
+        paint.color = Colors.orange;
+        canvas.drawCircle(offset + Offset(size * 0.5, size * 0.5), size * 0.35, paint);
+        // 햇살 (선택적)
+      } else if (weather.sky == '3') { // 구름많음
+        paint.color = Colors.orange; // 해
+        canvas.drawCircle(offset + Offset(size * 0.4, size * 0.4), size * 0.2, paint);
+        paint.color = Colors.grey[300]!; // 구름
+        canvas.drawCircle(offset + Offset(size * 0.5, size * 0.6), size * 0.25, paint);
+        canvas.drawCircle(offset + Offset(size * 0.7, size * 0.55), size * 0.2, paint);
+      } else { // 흐림 (Sky 4) 또는 기타
+        paint.color = Colors.grey[400]!;
+        canvas.drawCircle(offset + Offset(size * 0.3, size * 0.5), size * 0.25, paint);
+        canvas.drawCircle(offset + Offset(size * 0.5, size * 0.4), size * 0.3, paint);
+        canvas.drawCircle(offset + Offset(size * 0.7, size * 0.5), size * 0.25, paint);
+      }
+    }
   }
 
   // 날씨 상태에 따른 마커 배경색 반환
   Color _getMarkerColor(WeatherData? weather) {
     if (weather == null) return const Color(0xFF78909C);
-    switch (weather.pty) {
-      case '1': return const Color(0xFF1976D2);
-      case '2': return const Color(0xFF5C6BC0);
-      case '3': return const Color(0xFF4FC3F7);
-      case '4': return const Color(0xFF0288D1);
+    
+    // 강수가 있으면 무조건 어두운 파랑/하늘색 계열
+    if (weather.pty != null && weather.pty != '0') {
+       return const Color(0xFF455A64); // 강수 시 배경을 좀 더 어둡게 하여 아이콘 강조
     }
+
     switch (weather.sky) {
       case '1': return const Color(0xFFFF8F00);
       case '3': return const Color(0xFF00897B);
@@ -128,56 +192,67 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   }) async {
     final String marketName = name.length > 8 ? '${name.substring(0, 7)}…' : name;
     String weatherText = '';
+    
     if (weather != null) {
-      final emoji = _getWeatherEmoji(weather);
+      final label = _getWeatherLabel(weather);
       final tempStr = weather.temp != null ? '${weather.temp!.toStringAsFixed(0)}°' : '-°';
-      weatherText = '$emoji $tempStr';
+      // 온도계 이모지 추가
+      weatherText = '$label 🌡️$tempStr';
     }
 
     final Color bgColor = _getMarkerColor(weather);
     const double pixelRatio = 2.5;
 
-    // 스케일 적용된 폰트 크기
-    final double nameFontSize = 13 * scale;
-    final double weatherFontSize = 12 * scale;
+    // 스케일 적용된 디멘션
+    final double baseFontSize = 13 * scale;
+    final double smallFontSize = 12 * scale;
     final double paddingH = 12 * scale;
     final double paddingV = 8 * scale;
     final double arrowHeight = 8 * scale;
     final double borderRadius = 8 * scale;
     final double arrowHalfWidth = 6 * scale;
+    
+    // 아이콘 크기
+    final double iconSize = weather != null ? 16 * scale : 0;
+    final double iconSpacing = weather != null ? 4 * scale : 0;
 
     final nameStyle = ui.TextStyle(
       color: const Color(0xFFFFFFFF),
-      fontSize: nameFontSize,
+      fontSize: baseFontSize,
       fontWeight: ui.FontWeight.w700,
     );
     final weatherStyle = ui.TextStyle(
       color: const Color(0xFFFFFFFF),
-      fontSize: weatherFontSize,
+      fontSize: smallFontSize,
       fontWeight: ui.FontWeight.w500,
     );
 
+    // 이름 텍스트 레이아웃
     final nameParagraph = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
       ..pushStyle(nameStyle)
       ..addText(marketName);
     final nameP = nameParagraph.build()..layout(const ui.ParagraphConstraints(width: 300));
 
     double contentHeight = nameP.height;
-    double contentWidth = nameP.maxIntrinsicWidth;
+    double maxContentWidth = nameP.maxIntrinsicWidth;
 
+    // 날씨 텍스트 레이아웃
     ui.Paragraph? weatherP;
     if (weatherText.isNotEmpty) {
-      final weatherParagraph = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
+      final weatherParagraph = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.left))
         ..pushStyle(weatherStyle)
         ..addText(weatherText);
       weatherP = weatherParagraph.build()..layout(const ui.ParagraphConstraints(width: 300));
-      contentHeight += weatherP.height + 2 * scale;
-      if (weatherP.maxIntrinsicWidth > contentWidth) {
-        contentWidth = weatherP.maxIntrinsicWidth;
+      
+      contentHeight += math.max(weatherP.height, iconSize) + 2 * scale;
+      
+      final weatherRowWidth = iconSize + iconSpacing + weatherP.maxIntrinsicWidth;
+      if (weatherRowWidth > maxContentWidth) {
+        maxContentWidth = weatherRowWidth;
       }
     }
 
-    final double bubbleWidth = contentWidth + paddingH * 2;
+    final double bubbleWidth = maxContentWidth + paddingH * 2;
     final double bubbleHeight = contentHeight + paddingV * 2;
     final double totalHeight = bubbleHeight + arrowHeight;
 
@@ -210,7 +285,7 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       bgPaint,
     );
 
-    // 아래쪽 삼각형 화살표
+    // 화살표
     final arrowPath = Path()
       ..moveTo(bubbleWidth / 2 - arrowHalfWidth, bubbleHeight)
       ..lineTo(bubbleWidth / 2, bubbleHeight + arrowHeight)
@@ -218,16 +293,24 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       ..close();
     canvas.drawPath(arrowPath, bgPaint);
 
-    // 텍스트
-    double textY = paddingV;
+    // 텍스트 그리기
+    double currentY = paddingV;
+    
+    // 이름 (가운데 정렬)
     nameP.layout(ui.ParagraphConstraints(width: bubbleWidth - paddingH * 2));
-    canvas.drawParagraph(nameP, Offset(paddingH, textY));
-    textY += nameP.height + 2 * scale;
+    canvas.drawParagraph(nameP, Offset(paddingH + (bubbleWidth - paddingH * 2 - nameP.maxIntrinsicWidth) / 2, currentY));
+    currentY += nameP.height + 2 * scale;
 
-    if (weatherP != null) {
-      weatherP.layout(ui.ParagraphConstraints(width: bubbleWidth - paddingH * 2));
-      final weatherX = paddingH + (bubbleWidth - paddingH * 2 - weatherP.maxIntrinsicWidth) / 2;
-      canvas.drawParagraph(weatherP, Offset(weatherX < paddingH ? paddingH : weatherX, textY));
+    // 날씨 (아이콘 + 텍스트, 가운데 정렬)
+    if (weatherP != null && weather != null) {
+      final totalRowWidth = iconSize + iconSpacing + weatherP.maxIntrinsicWidth;
+      final startX = (bubbleWidth - totalRowWidth) / 2;
+      
+      // 아이콘 그리기
+      _drawWeatherIcon(canvas, Offset(startX, currentY - 2 * scale), iconSize, weather);
+      
+      // 날씨 텍스트 
+      canvas.drawParagraph(weatherP, Offset(startX + iconSize + iconSpacing, currentY + (iconSize - weatherP.height) / 2 - 2 * scale));
     }
 
     final picture = recorder.endRecording();
@@ -294,11 +377,11 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
           onCameraIdle: _onCameraIdle,
           onMapCreated: (GoogleMapController controller) {
             _mapController = controller;
-            if (_markers.isNotEmpty) {
-              _adjustCameraBounds();
-            }
+            // 마커 존재 여부와 상관없이 사용자 위치로 초기화 시도
+            _adjustCameraBounds();
           },
         ),
+        // 마커 로딩 표시
         if (!_markersReady && widget.markets.isNotEmpty)
           const Positioned(
             top: 16,
@@ -329,60 +412,30 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   }
 
   Future<void> _adjustCameraBounds() async {
-    if (_markers.isEmpty || _mapController == null) return;
+    if (_mapController == null) return;
 
     try {
       final position = await LocationService().getCurrentPosition();
 
-      if (position == null) {
-        _fitAllMarkers();
-        return;
-      }
-
-      final userLatLng = LatLng(position.latitude, position.longitude);
-
-      double minDistance = double.infinity;
-      LatLng? nearestMarketLatLng;
-
-      for (var marker in _markers) {
-        final distance = LocationService().calculateDistance(
-          userLatLng.latitude,
-          userLatLng.longitude,
-          marker.position.latitude,
-          marker.position.longitude,
-        );
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestMarketLatLng = marker.position;
-        }
-      }
-
-      if (nearestMarketLatLng != null) {
-        final double minLat = userLatLng.latitude < nearestMarketLatLng.latitude
-            ? userLatLng.latitude : nearestMarketLatLng.latitude;
-        final double maxLat = userLatLng.latitude > nearestMarketLatLng.latitude
-            ? userLatLng.latitude : nearestMarketLatLng.latitude;
-        final double minLng = userLatLng.longitude < nearestMarketLatLng.longitude
-            ? userLatLng.longitude : nearestMarketLatLng.longitude;
-        final double maxLng = userLatLng.longitude > nearestMarketLatLng.longitude
-            ? userLatLng.longitude : nearestMarketLatLng.longitude;
-
+      if (position != null) {
+        // 사용자 위치로 카메라 이동 (줌 기본 13.5)
         _mapController!.animateCamera(
-          CameraUpdate.newLatLngBounds(
-            LatLngBounds(
-              southwest: LatLng(minLat, minLng),
-              northeast: LatLng(maxLat, maxLng),
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(position.latitude, position.longitude),
+              zoom: 13.5,
             ),
-            100.0,
           ),
         );
-      } else {
+      } else if (_markers.isNotEmpty) {
+        // 위치를 못 가져오고 마커가 있으면 마커 전체 보기
         _fitAllMarkers();
       }
     } catch (e) {
       print('카메라 이동 중 오류: $e');
-      _fitAllMarkers();
+      if (_markers.isNotEmpty) {
+        _fitAllMarkers();
+      }
     }
   }
 
@@ -414,4 +467,3 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     );
   }
 }
-

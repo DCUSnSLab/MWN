@@ -20,12 +20,12 @@ WeatherData _$WeatherDataFromJson(Map<String, dynamic> json) => WeatherData(
   windSpeed: (json['wind_speed'] as num?)?.toDouble(),
   windDirection: (json['wind_direction'] as num?)?.toDouble(),
   pop: (json['pop'] as num?)?.toDouble(),
-  pty: json['pty'] as String?,
-  sky: json['sky'] as String?,
-  lightning: json['lightning'] as String?,
-  apiType: json['api_type'] as String?,
-  locationName: json['location_name'] as String?,
-  createdAt: json['created_at'] as String?,
+  pty: json['pty']?.toString(),
+  sky: json['sky']?.toString(),
+  lightning: json['lightning']?.toString(),
+  apiType: json['api_type']?.toString(),
+  locationName: json['location_name']?.toString(),
+  createdAt: json['created_at']?.toString(),
 );
 
 Map<String, dynamic> _$WeatherDataToJson(WeatherData instance) =>
