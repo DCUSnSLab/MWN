@@ -1,11 +1,14 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
 import 'api_service.dart';
 import 'notification_storage_service.dart';
 import '../models/notification_item.dart';
+import '../main.dart';
+import '../screens/notifications/notification_history_screen.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -230,7 +233,16 @@ class FCMService {
   // 알림 탭 처리
   void _onNotificationTapped(NotificationResponse notificationResponse) {
     print('알림 탭됨: ${notificationResponse.payload}');
-    // TODO: 특정 화면으로 이동하거나 액션 수행
+    final payload = notificationResponse.payload;
+    if (payload != null) {
+      MyApp.navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => NotificationHistoryScreen(
+            initialNotificationId: payload,
+          ),
+        ),
+      );
+    }
   }
 
   // 포그라운드 메시지 처리
@@ -243,15 +255,15 @@ class FCMService {
     print('🏷️ From: ${message.from}');
     print('⏰ 전송 시간: ${message.sentTime}');
 
-    // 알림 저장
-    _saveNotificationToStorage(message);
+    // 알림 저장하고 ID 받기
+    final notificationId = _saveNotificationToStorage(message);
 
-    // 포그라운드에서 로컬 알림 표시
-    _showLocalNotification(message);
+    // 포그라운드에서 로컬 알림 표시 (저장된 ID를 payload로 사용)
+    _showLocalNotification(message, notificationId);
   }
 
   // 로컬 알림 표시
-  Future<void> _showLocalNotification(RemoteMessage message) async {
+  Future<void> _showLocalNotification(RemoteMessage message, String notificationId) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'weather_alerts',
@@ -275,7 +287,7 @@ class FCMService {
       message.notification?.title ?? '날씨 알림',
       message.notification?.body ?? '새로운 날씨 정보가 있습니다',
       platformChannelSpecifics,
-      payload: message.data.toString(),
+      payload: notificationId, // 저장된 알림 ID를 페이로드로 설정
     );
   }
 
@@ -286,18 +298,25 @@ class FCMService {
     print('내용: ${message.notification?.body}');
     print('데이터: ${message.data}');
 
-    // 알림 저장
-    _saveNotificationToStorage(message);
+    // 알림 저장하고 ID 받기
+    final notificationId = _saveNotificationToStorage(message);
 
-    // TODO: 특정 화면으로 이동하거나 액션 수행
-    // 예: 날씨 상세 화면으로 이동, 알림 목록 화면으로 이동 등
+    // 알림 내역 화면으로 이동하며 상세 정보 표시
+    MyApp.navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => NotificationHistoryScreen(
+          initialNotificationId: notificationId,
+        ),
+      ),
+    );
   }
 
-  // 알림을 로컬 저장소에 저장
-  void _saveNotificationToStorage(RemoteMessage message) {
+  // 알림을 로컬 저장소에 저장 (ID 반환)
+  String _saveNotificationToStorage(RemoteMessage message) {
     try {
+      final id = message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString();
       final notification = NotificationItem(
-        id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id: id,
         title: message.notification?.title ?? '알림',
         body: message.notification?.body ?? '',
         receivedAt: DateTime.now().toIso8601String(),
@@ -305,8 +324,10 @@ class FCMService {
       );
 
       _storageService.saveNotification(notification);
+      return id;
     } catch (e) {
       print('❌ 알림 저장 중 오류: $e');
+      return message.messageId ?? '';
     }
   }
 

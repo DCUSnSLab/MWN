@@ -3,7 +3,12 @@ import '../../models/notification_item.dart';
 import '../../services/notification_storage_service.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
-  const NotificationHistoryScreen({super.key});
+  final String? initialNotificationId;
+
+  const NotificationHistoryScreen({
+    super.key,
+    this.initialNotificationId,
+  });
 
   @override
   State<NotificationHistoryScreen> createState() => _NotificationHistoryScreenState();
@@ -13,6 +18,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   final NotificationStorageService _storageService = NotificationStorageService();
   List<NotificationItem> _notifications = [];
   bool _isLoading = true;
+  bool _initialCheckDone = false;
 
   @override
   void initState() {
@@ -31,6 +37,22 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         _notifications = notifications;
         _isLoading = false;
       });
+
+      // 초기 알림 ID가 있고 아직 체크하지 않았다면 상세 화면 표시
+      if (widget.initialNotificationId != null && !_initialCheckDone) {
+        _initialCheckDone = true;
+        final target = notifications.firstWhere(
+          (n) => n.id == widget.initialNotificationId,
+          orElse: () => NotificationItem(id: '', title: '', body: '', receivedAt: ''), // Dummy
+        );
+        
+        if (target.id.isNotEmpty) {
+          // 화면이 그려진 후 다이얼로그 표시
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showNotificationDetail(target);
+          });
+        }
+      }
     } catch (e) {
       print('알림 불러오기 실패: $e');
       setState(() {
