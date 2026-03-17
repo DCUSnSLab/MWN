@@ -54,6 +54,9 @@ class ApiService {
     }
     return headers;
   }
+  
+  // 타임아웃 설정
+  static const Duration _timeout = Duration(seconds: 30);
 
   // HTTP 응답 처리
   T _handleResponse<T>(http.Response response, T Function(Map<String, dynamic>) fromJson) {
@@ -102,7 +105,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/auth/register'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(request.toJson()),
-    );
+    ).timeout(_timeout);
 
     final authResponse = _handleResponse(response, AuthResponse.fromJson);
     await _saveTokens(authResponse.tokens);
@@ -115,7 +118,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(request.toJson()),
-    );
+    ).timeout(_timeout);
 
     final authResponse = _handleResponse(response, AuthResponse.fromJson);
     await _saveTokens(authResponse.tokens);
@@ -178,7 +181,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/weather/current'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(request.toJson()),
-    );
+    ).timeout(_timeout);
 
     final weatherResponse = _handleResponse(response, WeatherResponse.fromJson);
     final currentWeather = weatherResponse.currentWeather;
@@ -196,7 +199,7 @@ class ApiService {
       Uri.parse('$baseUrl/api/weather/forecast'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(request.toJson()),
-    );
+    ).timeout(_timeout);
 
     final weatherResponse = _handleResponse(response, WeatherResponse.fromJson);
     return weatherResponse.forecastList;
@@ -214,7 +217,7 @@ class ApiService {
     if (limit != null) queryParams['limit'] = limit.toString();
 
     final uri = Uri.parse('$baseUrl/api/weather').replace(queryParameters: queryParams);
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(_timeout);
 
     return _handleResponse(response, WeatherHistoryResponse.fromJson);
   }
@@ -403,7 +406,7 @@ class ApiService {
       queryParameters: queryParams,
     );
 
-    final response = await http.get(uri, headers: _authHeaders);
+    final response = await http.get(uri, headers: _authHeaders).timeout(_timeout);
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseData = json.decode(response.body);
@@ -425,7 +428,7 @@ class ApiService {
       },
     );
 
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(_timeout);
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
@@ -766,13 +769,13 @@ class ApiService {
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,
   ) async {
-    var response = await request();
+    var response = await request().timeout(_timeout);
 
     // 토큰 만료시 자동 갱신 시도
     if (response.statusCode == 401 && _refreshToken != null) {
       try {
         await refreshToken();
-        response = await request(); // 새 토큰으로 재시도
+        response = await request().timeout(_timeout); // 새 토큰으로 재시도
       } catch (e) {
         // 갱신 실패시 로그아웃 처리
         await clearTokens();

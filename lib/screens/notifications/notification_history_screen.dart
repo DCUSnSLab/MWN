@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/notification_item.dart';
 import '../../services/notification_storage_service.dart';
+import 'notification_map_detail_screen.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
   final String? initialNotificationId;
@@ -107,66 +108,10 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
   }
 
   void _showNotificationDetail(NotificationItem notification) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(notification.title),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                notification.body,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                '수신 시간',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                notification.receivedAt,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              if (notification.data != null && notification.data!.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  '추가 정보',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  notification.data.toString(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('닫기'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NotificationMapDetailScreen(notification: notification),
       ),
     );
   }
