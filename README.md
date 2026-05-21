@@ -1,16 +1,41 @@
-# mwn
+# MWN — Market Weather Notification
 
-Weather notification
+전통시장 상인·관계자에게 시장별 맞춤 기상 정보와 재난 알림(강수·강풍·폭염 등)을 실시간으로 제공하고,
+시장 내 피해/위험 상황을 신고·관리하는 Flutter 모바일 앱.
 
-## Getting Started
+## 주요 기능
 
-This project is a starting point for a Flutter application.
+- JWT 기반 로그인 / 자동 로그인, 일반 사용자·관리자 권한 분리
+- 시장별 실시간 날씨 및 강수확률 조회 (기상청 단기/초단기 예보 API)
+- 관심 시장 등록 기반 맞춤 대시보드
+- 기상 임계값 도달 시 FCM 푸시 알림 (방해금지 시간 지원)
+- 사진 첨부 현장 신고 및 관리자 모니터링
 
-A few resources to get you started if this is your first Flutter project:
+## 기술 스택
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- Flutter / Dart
+- 상태 관리: Provider
+- 네트워크: `http` (`ApiService`)
+- 푸시 알림: Firebase Cloud Messaging
+- 로컬 저장: `shared_preferences`, `flutter_secure_storage`
+- 백엔드(별도 저장소): Python / Flask + PostgreSQL
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 시작하기
+
+사전 준비: Flutter SDK (버전은 `pubspec.yaml`의 `environment` 참고)
+
+```bash
+flutter pub get
+flutter run
+```
+
+릴리즈 빌드:
+
+```bash
+flutter build apk        # Android APK
+flutter build appbundle  # Android App Bundle
+```
+
+## 더 보기
+
+프로젝트 구조, 백엔드 연동, 배포 관련 상세 내용은 [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md)를 참고하세요.
