@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../models/weather.dart';
 import '../models/api_error.dart';
@@ -9,39 +10,74 @@ import '../models/market.dart';
 import '../models/alert_conditions.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://203.250.33.77';
+  // 빌드 시 `--dart-define=API_BASE_URL=http://...` 로 주입한다.
+  // 미지정 시 운영 서버 IP 를 기본값으로 사용한다.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://203.250.33.77',
+  );
   
   // 싱글톤 패턴
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
 
+  // 토큰은 OS 키스토어 기반 보안 저장소에 보관한다.
+  static const String _accessTokenKey = 'access_token';
+  static const String _refreshTokenKey = 'refresh_token';
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
   String? _accessToken;
   String? _refreshToken;
 
+  // 현재 액세스 토큰 (헤더를 직접 구성하는 화면에서 사용)
+  String? get accessToken => _accessToken;
+
   // 토큰 저장
   Future<void> _saveTokens(AuthTokens tokens) async {
-    final prefs = await SharedPreferences.getInstance();
     _accessToken = tokens.accessToken;
     _refreshToken = tokens.refreshToken;
-    await prefs.setString('access_token', tokens.accessToken);
-    await prefs.setString('refresh_token', tokens.refreshToken);
+    await _secureStorage.write(key: _accessTokenKey, value: tokens.accessToken);
+    await _secureStorage.write(key: _refreshTokenKey, value: tokens.refreshToken);
   }
 
   // 토큰 로드
   Future<void> loadTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    _accessToken = prefs.getString('access_token');
-    _refreshToken = prefs.getString('refresh_token');
+    _accessToken = await _secureStorage.read(key: _accessTokenKey);
+    _refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+
+    // 구버전(SharedPreferences 평문 저장)에서 1회 마이그레이션
+    if (_accessToken == null && _refreshToken == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final legacyAccess = prefs.getString(_accessTokenKey);
+      final legacyRefresh = prefs.getString(_refreshTokenKey);
+      if (legacyAccess != null || legacyRefresh != null) {
+        _accessToken = legacyAccess;
+        _refreshToken = legacyRefresh;
+        if (legacyAccess != null) {
+          await _secureStorage.write(key: _accessTokenKey, value: legacyAccess);
+        }
+        if (legacyRefresh != null) {
+          await _secureStorage.write(key: _refreshTokenKey, value: legacyRefresh);
+        }
+        await prefs.remove(_accessTokenKey);
+        await prefs.remove(_refreshTokenKey);
+      }
+    }
   }
 
   // 토큰 삭제
   Future<void> clearTokens() async {
-    final prefs = await SharedPreferences.getInstance();
     _accessToken = null;
     _refreshToken = null;
-    await prefs.remove('access_token');
-    await prefs.remove('refresh_token');
+    await _secureStorage.delete(key: _accessTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
+    // 구버전 평문 토큰이 남아 있을 경우 함께 정리
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
   }
 
   // 인증이 필요한 요청에 헤더 추가
