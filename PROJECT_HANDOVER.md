@@ -26,19 +26,19 @@
 
 ## 📁 디렉토리 구조 및 핵심 컴포넌트 (Directory Structure)
 
-### 1. Frontend (`/Users/ppmb/AndroidStudioProjects/MWN/`)
+### 1. Frontend (이 저장소 루트)
 - `lib/models/`: 데이터 모델 (`User`, `Weather`, `MarketReport`, `Market` 등)
 - `lib/providers/`: 상태 관리 로직 (`auth_provider.dart`, `market_provider.dart` 등)
 - `lib/services/`: 외부 통신 및 비즈니스 로직
-  - `api_service.dart`: 백엔드 API와의 통신 및 에러/토큰 만료 핸들링 로직 **(현재 `baseUrl = http://203.250.33.77` 하드코딩 되어있음)**
+  - `api_service.dart`: 백엔드 API와의 통신 및 에러/토큰 만료 핸들링 로직. `baseUrl` 은 `--dart-define=API_BASE_URL=...` 빌드 인자로 주입하며, 미지정 시 운영 서버 IP 를 기본값으로 사용한다.
   - `fcm_service.dart`: FCM 알림 수신, 권한 요청, 백그라운드 핸들링
 - `lib/screens/`: UI 화면 구성
   - `auth/`: 로그인(`login_screen.dart`), 회원가입, 비밀번호 확인 로직
   - `home/`: 메인 대시보드 및 날씨 정보 표시
   - `admin/`: **관리자 전용 기능** (유저 관리, 시장 별 알림 조건 세팅, 수동 FCM 푸시 전송, 신고 내역 관리 상세페이지 등)
 
-### 2. Backend (`/Users/ppmb/mwn_backend/` & `/Users/ppmb/AndroidStudioProjects/MWN/diagnose_notification/`)
-*(참고: 설정에 따라 Docker 환경이 `diagnose_notification` 폴더의 `docker-compose`를 참조하기도 함)*
+### 2. Backend (별도 저장소 `mwn_backend/`)
+*Flutter 앱 저장소 외부에 위치한다. 본 저장소의 `diagnose_notification/` 폴더는 과거에 Docker compose 설정을 참조하던 흔적이며 현재는 비어 있다.*
 - `app.py`: Flask 라우팅 엔드포인트 집합 (회원가입/로그인, FCM 발송, 신고 수합, 날씨 API 연동 등)
 - `models.py`: 데이터베이스 테이블 명세
   - `User`, `Market`, `MarketReport`, `Weather`, `DamageStatus`, `MarketAlarmLog`, `PasswordVerificationAttempt` 등
@@ -71,17 +71,21 @@
 
 ### 최근 진행 완료된 작업
 - **신고 내역 필터링 추가 UI**: `lib/screens/admin/report_list_screen.dart` 내 Dropdown을 통한 "시장별 필터" 기능 및 "사진만 보기" Toggle 구현 완료.
-- **백엔드 신고조회 API 복원**: `diagnose_notification`에서 분실되었던 `GET /api/reports` 엔드포인트를 `/Users/ppmb/mwn_backend/app.py` 에 정상적으로 추가.
+- **백엔드 신고조회 API 복원**: 분실되었던 `GET /api/reports` 엔드포인트를 백엔드 저장소(`mwn_backend/app.py`)에 정상적으로 추가.
 - **Flutter 정적 분석 해결**: Image 위젯 렌더링 과정의 Null Safety 경고 해결 완료.
 - **APK / AAB 앱 번들 빌드**: `key.properties` 안의 오타를 패치(`upload-key.jks` -> `upload-keystore.jks`)하여 Release 빌드 성공.
 
 ### 주의사항 및 Known Constraints
-1. **로컬 백엔드 서버 상태 검증 요망**: 
-   - 빌드환경 (Mac)의 Docker 데몬이 간헐적으로 꺼져있거나 접속 불가 (`Connection refused`) 상태가 될 수 있습니다.
-   - 백엔드 테스트를 위해선 도커 데몬을 확실하게 켜야 하며, 경우에 따라 `mwn_backend` 또는 `diagnose_notification` 내의 컨테이너를 다시 `up` 해야 합니다.
-2. **Base URL 주의**:
-   - `lib/services/api_service.dart`의 `baseUrl` 파라미터가 현재 운영 IP (`http://203.250.33.77`)로 설정되어 있습니다. 로컬 테스트를 위해서는 이 값을 호스트 아이피 혹은 `10.0.2.2`(Android Emulator용) 등으로 맞추어 수정하는 작업이 선행될 수 있습니다.
+1. **로컬 백엔드 서버 상태 검증 요망**:
+   - Docker 데몬이 꺼져있거나 컨테이너가 내려간 상태에서는 API 호출이 `Connection refused` 로 실패합니다.
+   - 백엔드 테스트 전, Docker 데몬을 켜고 `mwn_backend` 컨테이너가 `up` 상태인지 확인해야 합니다.
+2. **Base URL 주입**:
+   - `lib/services/api_service.dart` 의 `baseUrl` 은 `--dart-define=API_BASE_URL=...` 빌드 인자로 주입한다. 미지정 시 운영 서버 IP 가 기본값으로 사용된다.
+   - 로컬 테스트 예시:
+     - Android Emulator: `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000`
+     - iOS Simulator / Desktop: `flutter run --dart-define=API_BASE_URL=http://localhost:5000`
+     - 실기기: 호스트 PC 의 LAN IP 사용 (예: `http://192.168.x.x:5000`).
 3. **Workspace 접근 제한**:
-   - Agent 권한이 외부 폴더(`/Users/ppmb/mwn_backend` 등)에서 CLI 커맨드를 실행하는 데 종종 막힐 수 있습니다. DB나 Python 실행 시, 접근 권한이나 Docker-compose 실행 맥락을 염두에 두고 명령을 수행해야 합니다.
+   - 백엔드 저장소(`mwn_backend`)는 이 Flutter 저장소 외부에 위치하므로, Agent 가 해당 폴더에서 CLI 커맨드를 실행하지 못할 수 있습니다. DB/Python 실행은 백엔드 저장소를 별도로 열어 진행하거나, Docker-compose 컨텍스트를 명시적으로 지정해야 합니다.
 
 이 문서의 정보를 바탕으로 클라이언트/서버 요구사항을 판단하고 이어서 개발을 안전하게 진행하시기 바랍니다.

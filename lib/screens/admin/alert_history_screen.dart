@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
@@ -54,8 +53,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('access_token');
+      final token = ApiService().accessToken;
       final baseUrl = ApiService.baseUrl;
 
       // 역할에 따라 API 엔드포인트 분기

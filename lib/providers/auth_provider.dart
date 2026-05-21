@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/fcm_service.dart';
@@ -7,6 +7,10 @@ import '../services/fcm_service.dart';
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   FCMService? _fcmService;
+
+  // 자동 로그인용 자격 증명 저장소.
+  // login_screen.dart 와 동일한 보안 저장소를 가리켜야 삭제가 실제로 반영된다.
+  static const FlutterSecureStorage _credentialStorage = FlutterSecureStorage();
   
   User? _currentUser;
   bool _isLoading = false;
@@ -30,6 +34,13 @@ class AuthProvider with ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // 자동 로그인용으로 저장된 이메일/비밀번호를 보안 저장소에서 제거한다.
+  Future<void> _clearSavedCredentials() async {
+    await _credentialStorage.delete(key: 'saved_email');
+    await _credentialStorage.delete(key: 'saved_password');
+    await _credentialStorage.delete(key: 'auto_login');
   }
 
   // 앱 시작시 토큰 로드 및 사용자 정보 확인
@@ -137,13 +148,10 @@ class AuthProvider with ChangeNotifier {
     _setLoading(true);
     try {
       await _apiService.logout();
-      
+
       // 저장된 자격 증명도 삭제
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('saved_email');
-      await prefs.remove('saved_password');
-      await prefs.setBool('auto_login', false);
-      
+      await _clearSavedCredentials();
+
     } catch (e) {
       print('Logout error: $e');
     } finally {
@@ -176,13 +184,10 @@ class AuthProvider with ChangeNotifier {
 
     try {
       await _apiService.deleteAccount();
-      
+
       // 저장된 자격 증명 삭제
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('saved_email');
-      await prefs.remove('saved_password');
-      await prefs.setBool('auto_login', false);
-      
+      await _clearSavedCredentials();
+
       _currentUser = null;
       _setLoading(false);
       notifyListeners(); // 명시적으로 알림
