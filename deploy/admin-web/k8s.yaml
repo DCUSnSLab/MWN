@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mwn-admin-web
+  namespace: mwn
+  labels:
+    app: mwn-admin-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mwn-admin-web
+  template:
+    metadata:
+      labels:
+        app: mwn-admin-web
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: d2-k8s
+      containers:
+        - name: nginx
+          image: harbor.cu.ac.kr/mwn/admin-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "32Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mwn-admin-web
+  namespace: mwn
+spec:
+  type: ClusterIP
+  selector:
+    app: mwn-admin-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
