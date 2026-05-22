@@ -1,11 +1,11 @@
 {
-    "name": "mwn",
-    "short_name": "mwn",
+    "name": "MWN 관리자",
+    "short_name": "MWN 관리자",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Weather notification",
+    "background_color": "#673AB7",
+    "theme_color": "#673AB7",
+    "description": "MWN 관리자 인터페이스",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
