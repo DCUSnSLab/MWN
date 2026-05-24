@@ -36,6 +36,19 @@ flutter build apk        # Android APK
 flutter build appbundle  # Android App Bundle
 ```
 
+## 관리자 웹
+
+관리자 기능은 동일 코드베이스를 Flutter Web으로 빌드해 웹에서도 사용할 수 있습니다.
+`lib/main_web.dart`가 관리자 전용 진입점입니다.
+
+```bash
+flutter run -d chrome -t lib/main_web.dart   # 개발 실행
+flutter build web -t lib/main_web.dart       # 웹 빌드 (build/web)
+```
+
+> 웹 관리자는 브라우저에서 백엔드 API를 호출하므로 백엔드의 CORS 허용이 필요하며,
+> `http://` 백엔드 특성상 웹 관리자도 HTTP로 서빙해야 합니다(HTTPS는 혼합 콘텐츠로 차단됨).
+
 ## 더 보기
 
 프로젝트 구조, 백엔드 연동, 배포 관련 상세 내용은 [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md)를 참고하세요.
