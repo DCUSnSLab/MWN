@@ -148,7 +148,28 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ),
                 ),
               ),
-
+              SizedBox(height: 24.h),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isDeleting ? null : _showDeleteAccountDialog,
+                  icon: _isDeleting
+                      ? SizedBox(
+                          width: 18.w,
+                          height: 18.w,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.delete_forever),
+                  label: Text(_isDeleting ? '삭제 중...' : '계정 삭제'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
             ],
           );
         },

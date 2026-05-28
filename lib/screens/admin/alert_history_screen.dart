@@ -17,7 +17,6 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
   List<dynamic> _logs = [];
   bool _isLoading = false;
   int _currentPage = 1;
-  int _totalPages = 1;
   bool _hasNext = false;
   final ScrollController _scrollController = ScrollController();
   
@@ -83,7 +82,6 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
             _logs.addAll(newLogs);
           }
           _currentPage = data['current_page'];
-          _totalPages = data['pages'];
           _hasNext = data['has_next'];
           _isLoading = false;
         });
@@ -148,33 +146,27 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
   Widget _buildLogTile(dynamic log) {
     Color typeColor = Colors.grey;
     IconData typeIcon = Icons.notifications;
-    String typeText = log['alert_type'] ?? '알림';
 
     switch (log['alert_type']) {
       case 'rain':
         typeColor = Colors.blue;
         typeIcon = Icons.water_drop;
-        typeText = '강수';
         break;
       case 'high_temp':
         typeColor = Colors.orange;
         typeIcon = Icons.wb_sunny;
-        typeText = '폭염';
         break;
       case 'low_temp':
         typeColor = Colors.cyan;
         typeIcon = Icons.ac_unit;
-        typeText = '한파';
         break;
       case 'strong_wind':
         typeColor = Colors.green;
         typeIcon = Icons.air;
-        typeText = '강풍';
         break;
       case 'snow':
         typeColor = Colors.lightBlueAccent;
         typeIcon = Icons.snowing;
-        typeText = '대설';
         break;
     }
 

@@ -4,7 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/market_provider.dart';
 import '../../services/api_service.dart';
-import '../../services/fcm_service.dart';
 import '../../models/user.dart';
 import 'user_management_screen.dart';
 import 'fcm_broadcast_screen.dart';
@@ -23,7 +22,6 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   final ApiService _apiService = ApiService();
-  final FCMService _fcmService = FCMService();
   List<User> _users = [];
   bool _isLoading = false;
   String? _error;
