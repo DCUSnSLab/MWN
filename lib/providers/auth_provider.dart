@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
-import '../services/api_service.dart';
+import '../repositories/auth_repository.dart';
 import '../services/fcm_service.dart';
 
 class AuthProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final AuthRepository _authRepository = AuthRepository();
   FCMService? _fcmService;
 
   // 자동 로그인용 자격 증명 저장소.
@@ -19,7 +19,7 @@ class AuthProvider with ChangeNotifier {
   User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isLoggedIn => _currentUser != null && _apiService.isLoggedIn;
+  bool get isLoggedIn => _currentUser != null && _authRepository.isLoggedIn;
 
   void _setLoading(bool loading) {
     _isLoading = loading;
@@ -47,13 +47,13 @@ class AuthProvider with ChangeNotifier {
   Future<void> initializeAuth() async {
     _setLoading(true);
     try {
-      await _apiService.loadTokens();
-      if (_apiService.isLoggedIn) {
-        _currentUser = await _apiService.getProfile();
+      await _authRepository.loadTokens();
+      if (_authRepository.isLoggedIn) {
+        _currentUser = await _authRepository.getProfile();
       }
     } catch (e) {
       print('Auth initialization failed: $e');
-      await _apiService.clearTokens();
+      await _authRepository.clearTokens();
     } finally {
       _setLoading(false);
     }
@@ -79,7 +79,7 @@ class AuthProvider with ChangeNotifier {
         location: location,
       );
 
-      final response = await _apiService.register(request);
+      final response = await _authRepository.register(request);
       _currentUser = response.user;
       
       // 회원가입 성공 시 FCM 토큰 등록
@@ -115,7 +115,7 @@ class AuthProvider with ChangeNotifier {
       );
 
       print('🔑 API 로그인 요청 중...');
-      final response = await _apiService.login(request);
+      final response = await _authRepository.login(request);
       print('✅ API 로그인 성공');
 
       _currentUser = response.user;
@@ -147,7 +147,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _setLoading(true);
     try {
-      await _apiService.logout();
+      await _authRepository.logout();
 
       // 저장된 자격 증명도 삭제
       await _clearSavedCredentials();
@@ -163,10 +163,10 @@ class AuthProvider with ChangeNotifier {
 
   // 프로필 새로고침
   Future<void> refreshProfile() async {
-    if (!_apiService.isLoggedIn) return;
+    if (!_authRepository.isLoggedIn) return;
 
     try {
-      _currentUser = await _apiService.getProfile();
+      _currentUser = await _authRepository.getProfile();
       notifyListeners();
     } catch (e) {
       print('Profile refresh failed: $e');
@@ -183,7 +183,7 @@ class AuthProvider with ChangeNotifier {
     _setError(null);
 
     try {
-      await _apiService.deleteAccount();
+      await _authRepository.deleteAccount();
 
       // 저장된 자격 증명 삭제
       await _clearSavedCredentials();
@@ -201,7 +201,7 @@ class AuthProvider with ChangeNotifier {
   // 비밀번호 확인
   Future<bool> verifyPassword(String password) async {
     try {
-      return await _apiService.verifyPassword(password);
+      return await _authRepository.verifyPassword(password);
     } catch (e) {
       print('비밀번호 확인 실패: $e');
       rethrow;
@@ -220,7 +220,7 @@ class AuthProvider with ChangeNotifier {
     _setError(null);
 
     try {
-      final updatedUser = await _apiService.updateProfile(
+      final updatedUser = await _authRepository.updateProfile(
         name: name,
         email: email,
         password: password,
