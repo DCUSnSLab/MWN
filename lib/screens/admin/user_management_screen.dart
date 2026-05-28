@@ -15,7 +15,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   List<User> _filteredUsers = [];
   bool _isLoading = false;
   String? _error;
-  String _searchQuery = '';
 
   @override
   void initState() {
@@ -46,7 +45,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _filterUsers(String query) {
     setState(() {
-      _searchQuery = query;
       if (query.isEmpty) {
         _filteredUsers = _users;
       } else {

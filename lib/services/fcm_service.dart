@@ -1,6 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:io';
@@ -59,7 +58,7 @@ class FCMService {
         
         // 토큰 갱신 리스너
         _firebaseMessaging.onTokenRefresh.listen((newToken) {
-          print('🔄 FCM 토큰 갱신: ${newToken?.substring(0, 50)}...');
+          print('🔄 FCM 토큰 갱신: ${newToken.substring(0, 50)}...');
           _fcmToken = newToken;
           _registerTokenToServer();
         });
