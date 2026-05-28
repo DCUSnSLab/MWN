@@ -11,7 +11,12 @@ import GoogleMaps
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GMSServices.provideAPIKey("AIzaSyBi_lmtSEkJrMZCecBJ8btF2GRWSdjz4qo")
+    // Maps API 키는 Info.plist(GMSApiKey) <- xcconfig(MAPS_API_KEY) 에서 주입한다.
+    // 저장소에 평문으로 커밋하지 않는다.
+    if let mapsApiKey = Bundle.main.object(forInfoDictionaryKey: "GMSApiKey") as? String,
+       !mapsApiKey.isEmpty {
+      GMSServices.provideAPIKey(mapsApiKey)
+    }
     FirebaseApp.configure()
     
     // FCM을 위한 원격 알림 등록

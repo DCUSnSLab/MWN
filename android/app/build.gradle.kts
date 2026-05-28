@@ -16,6 +16,18 @@ if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
+// 클라이언트 시크릿(Google Maps API 키 등) 로드 — 저장소에 커밋하지 않는다.
+// secrets.properties(gitignore) 또는 MAPS_API_KEY 환경변수로 주입한다.
+val secretsProperties = Properties()
+val secretsPropertiesFile = rootProject.file("secrets.properties")
+if (secretsPropertiesFile.exists()) {
+    secretsPropertiesFile.inputStream().use { secretsProperties.load(it) }
+}
+val mapsApiKey: String =
+    (secretsProperties["MAPS_API_KEY"] as String?)
+        ?: System.getenv("MAPS_API_KEY")
+        ?: ""
+
 android {
     namespace = "snslab.cu.ac.kr.mwn"
     compileSdk = flutter.compileSdkVersion
@@ -50,6 +62,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // AndroidManifest 의 ${MAPS_API_KEY} 자리에 빌드 시 주입
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {
