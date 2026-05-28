@@ -46,3 +46,11 @@ app.*.map.json
 
 */key.properties
 */upload-keystore.jks
+
+# 클라이언트 시크릿 (빌드 시 주입 — 저장소에 커밋 금지). *.example 템플릿만 커밋.
+android/secrets.properties
+ios/Flutter/Secrets.xcconfig
+
+# Firebase 설정 파일 (각 환경/CI 에서 직접 배치 — Firebase 콘솔에서 다운로드)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
