@@ -71,6 +71,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         },
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> newLogs = data['logs'];
@@ -95,6 +96,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
       }
     } catch (e) {
       print('Error fetching logs: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
       );

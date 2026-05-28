@@ -32,6 +32,7 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
 
     try {
       final position = await _locationService.getCurrentPosition();
+      if (!mounted) return;
       if (position == null) {
         setState(() {
           _isLoadingDistances = false;
@@ -126,6 +127,7 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
         builder: (context) => const MarketSearchScreen(),
       ),
     ).then((_) {
+      if (!mounted) return;
       // 검색 화면에서 돌아왔을 때 목록 새로고침
       context.read<MarketProvider>().loadWatchlist();
       _loadMarketDistances();

@@ -65,6 +65,7 @@ class _ReportScreenState extends State<ReportScreen> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('시장 목록을 불러오는데 실패했습니다: $e')),
       );
@@ -86,6 +87,7 @@ class _ReportScreenState extends State<ReportScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('이미지를 불러오는데 실패했습니다: $e')),
       );
