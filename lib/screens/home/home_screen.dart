@@ -132,19 +132,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         trailing: IconButton(
                           icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            final marketProvider = context.read<MarketProvider>();
                             try {
-                              await context.read<MarketProvider>().addToWatchlist(market);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('${market.name}이(가) 추가되었습니다.')),
-                                );
-                              }
+                              await marketProvider.addToWatchlist(market);
+                              messenger.showSnackBar(
+                                SnackBar(content: Text('${market.name}이(가) 추가되었습니다.')),
+                              );
                             } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('추가 실패: $e')),
-                                );
-                              }
+                              messenger.showSnackBar(
+                                SnackBar(content: Text('추가 실패: $e')),
+                              );
                             }
                           },
                         ),

@@ -13,7 +13,17 @@ import 'services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // 전역 에러 핸들링 — 미처리 예외를 잡아 로깅(릴리즈에서 조용한 크래시/누락 방지).
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Uncaught Flutter error: ${details.exception}');
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    debugPrint('Uncaught async error: $error');
+    return true;
+  };
+
   // 화면 방향을 세로 모드로만 제한
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
