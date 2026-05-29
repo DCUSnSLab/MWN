@@ -1,4 +1,5 @@
 import '../models/user.dart';
+import '../models/market.dart';
 import '../services/api_service.dart';
 
 /// 관리자(admin) 도메인 데이터 접근 계층.
@@ -43,5 +44,29 @@ class AdminRepository {
         topic: topic,
         userIds: userIds,
         data: data,
+      );
+
+  Future<List<Market>> getMarkets({
+    int page = 1,
+    int perPage = 100,
+    bool? isActive,
+  }) =>
+      _api.getMarkets(page: page, perPage: perPage, isActive: isActive);
+
+  Future<Map<String, dynamic>> sendWeatherTestAlert({
+    required int userId,
+    required int marketId,
+    required String alertType,
+    bool ignoreDnd = false,
+    String? customTitle,
+    String? customBody,
+  }) =>
+      _api.sendWeatherTestAlert(
+        userId: userId,
+        marketId: marketId,
+        alertType: alertType,
+        ignoreDnd: ignoreDnd,
+        customTitle: customTitle,
+        customBody: customBody,
       );
 }
