@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
 import '../../models/user.dart';
 import 'alert_history_screen.dart';
 
@@ -12,7 +12,7 @@ class FCMBroadcastScreen extends StatefulWidget {
 
 class _FCMBroadcastScreenState extends State<FCMBroadcastScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
 
   @override
   void initState() {
@@ -60,9 +60,9 @@ class _FCMBroadcastScreenState extends State<FCMBroadcastScreen> with SingleTick
       body: TabBarView(
         controller: _tabController,
         children: [
-          _BroadcastToAllTab(apiService: _apiService),
-          _BroadcastToTopicTab(apiService: _apiService),
-          _BroadcastToUsersTab(apiService: _apiService),
+          _BroadcastToAllTab(adminRepository: _adminRepository),
+          _BroadcastToTopicTab(adminRepository: _adminRepository),
+          _BroadcastToUsersTab(adminRepository: _adminRepository),
         ],
       ),
     );
@@ -70,9 +70,9 @@ class _FCMBroadcastScreenState extends State<FCMBroadcastScreen> with SingleTick
 }
 
 class _BroadcastToAllTab extends StatefulWidget {
-  final ApiService apiService;
+  final AdminRepository adminRepository;
 
-  const _BroadcastToAllTab({required this.apiService});
+  const _BroadcastToAllTab({required this.adminRepository});
 
   @override
   State<_BroadcastToAllTab> createState() => _BroadcastToAllTabState();
@@ -87,7 +87,7 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
   Future<void> _checkFCMStatus() async {
     try {
       print('🔄 FCM 토큰 상태 확인 시작');
-      final users = await widget.apiService.getAllUsers();
+      final users = await widget.adminRepository.getAllUsers();
       final activeUsers = users.where((user) => user.fcmToken != null).toList();
       final inactiveUsers = users.where((user) => user.fcmToken == null).toList();
       
@@ -152,17 +152,17 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
       
       // 현재 프로필 확인
       try {
-        final profile = await widget.apiService.getProfile();
+        final profile = await widget.adminRepository.getProfile();
         print('👤 현재 사용자: ${profile.name} (${profile.email})');
         print('🔰 사용자 역할: ${profile.role}');
       } catch (e) {
         print('❌ 프로필 확인 실패: $e');
       }
       
-      await widget.apiService.getAllUsers();
+      await widget.adminRepository.getAllUsers();
       print('✅ 관리자 권한 확인됨');
       
-      await widget.apiService.sendAdminFCMBroadcast(
+      await widget.adminRepository.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
       );
@@ -305,9 +305,9 @@ class _BroadcastToAllTabState extends State<_BroadcastToAllTab> {
 }
 
 class _BroadcastToTopicTab extends StatefulWidget {
-  final ApiService apiService;
+  final AdminRepository adminRepository;
 
-  const _BroadcastToTopicTab({required this.apiService});
+  const _BroadcastToTopicTab({required this.adminRepository});
 
   @override
   State<_BroadcastToTopicTab> createState() => _BroadcastToTopicTabState();
@@ -345,7 +345,7 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
     try {
       final topic = _topicController.text.trim();
       print('주제별 FCM 브로드캐스트 시작 - 주제: $topic');
-      await widget.apiService.sendAdminFCMBroadcast(
+      await widget.adminRepository.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
         topic: topic,
@@ -508,9 +508,9 @@ class _BroadcastToTopicTabState extends State<_BroadcastToTopicTab> {
 }
 
 class _BroadcastToUsersTab extends StatefulWidget {
-  final ApiService apiService;
+  final AdminRepository adminRepository;
 
-  const _BroadcastToUsersTab({required this.apiService});
+  const _BroadcastToUsersTab({required this.adminRepository});
 
   @override
   State<_BroadcastToUsersTab> createState() => _BroadcastToUsersTabState();
@@ -547,7 +547,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
     });
 
     try {
-      final users = await widget.apiService.getAllUsers();
+      final users = await widget.adminRepository.getAllUsers();
       setState(() {
         _users = users.where((user) => user.fcmToken != null).toList();
         _isLoadingUsers = false;
@@ -576,7 +576,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
     try {
       final userIds = _selectedUsers.map((user) => user.id).toList();
       print('선택 사용자 FCM 브로드캐스트 시작 - 사용자 ${userIds.length}명: $userIds');
-      await widget.apiService.sendAdminFCMBroadcast(
+      await widget.adminRepository.sendAdminFCMBroadcast(
         title: _titleController.text.trim(),
         body: _bodyController.text.trim(),
         userIds: userIds,
