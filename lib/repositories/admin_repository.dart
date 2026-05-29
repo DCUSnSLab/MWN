@@ -8,6 +8,9 @@ class AdminRepository {
 
   final ApiService _api;
 
+  /// 현재 로그인한 관리자 프로필 (권한 확인 등에 사용).
+  Future<User> getProfile() => _api.getProfile();
+
   Future<List<User>> getAllUsers() => _api.getAllUsers();
 
   Future<User> createUser({
@@ -25,5 +28,20 @@ class AdminRepository {
         phone: phone,
         location: location,
         role: role,
+      );
+
+  Future<void> sendAdminFCMBroadcast({
+    required String title,
+    required String body,
+    String? topic,
+    List<int>? userIds,
+    Map<String, dynamic>? data,
+  }) =>
+      _api.sendAdminFCMBroadcast(
+        title: title,
+        body: body,
+        topic: topic,
+        userIds: userIds,
+        data: data,
       );
 }
