@@ -1,5 +1,6 @@
 import '../models/user.dart';
 import '../models/market.dart';
+import '../models/alert_conditions.dart';
 import '../services/api_service.dart';
 
 /// 관리자(admin) 도메인 데이터 접근 계층.
@@ -69,4 +70,15 @@ class AdminRepository {
         customTitle: customTitle,
         customBody: customBody,
       );
+
+  Future<List<UserMarketInterest>> getWatchlist() => _api.getWatchlist();
+
+  Future<MarketAlertConditionsResponse> getMarketAlertConditions(int marketId) =>
+      _api.getMarketAlertConditions(marketId);
+
+  Future<MarketAlertConditionsResponse> updateMarketAlertConditions(
+    int marketId,
+    Map<String, dynamic> conditions,
+  ) =>
+      _api.updateMarketAlertConditions(marketId, conditions);
 }
