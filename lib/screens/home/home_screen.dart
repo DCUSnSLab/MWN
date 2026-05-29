@@ -30,11 +30,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMarketData();
     _scrollController.addListener(_onScroll);
-    
-    // 화면이 그려진 후 추천 로직 실행
+
+    // 첫 프레임 이후에 실행 — 빌드 도중 MarketProvider.notifyListeners()가 호출되어
+    // "setState()/markNeedsBuild() called during build" 가 발생하는 것을 방지한다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMarketData();
       _checkAndShowRecommendations();
     });
   }
