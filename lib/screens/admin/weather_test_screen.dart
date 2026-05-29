@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/market.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
 
 class WeatherTestScreen extends StatefulWidget {
   const WeatherTestScreen({super.key});
@@ -11,7 +11,7 @@ class WeatherTestScreen extends StatefulWidget {
 }
 
 class _WeatherTestScreenState extends State<WeatherTestScreen> {
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
 
   List<User> _users = [];
   List<Market> _markets = [];
@@ -45,8 +45,8 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
     });
 
     try {
-      final users = await _apiService.getAllUsers();
-      final markets = await _apiService.getMarkets();
+      final users = await _adminRepository.getAllUsers();
+      final markets = await _adminRepository.getMarkets();
 
       setState(() {
         _users = users;
@@ -77,7 +77,7 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
     });
 
     try {
-      final result = await _apiService.sendWeatherTestAlert(
+      final result = await _adminRepository.sendWeatherTestAlert(
         userId: _selectedUser!.id,
         marketId: _selectedMarket!.id,
         alertType: _selectedAlertType,
