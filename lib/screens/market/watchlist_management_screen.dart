@@ -4,6 +4,7 @@ import '../../models/market.dart';
 import '../../providers/market_provider.dart';
 import '../../services/location_service.dart';
 import '../../services/market_service.dart';
+import '../../widgets/async_view.dart';
 import 'market_search_screen.dart';
 
 class WatchlistManagementScreen extends StatefulWidget {
@@ -160,34 +161,34 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
       ),
       body: Consumer<MarketProvider>(
         builder: (context, marketProvider, child) {
-          if (marketProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-
-          if (marketProvider.error != null) {
-            return _buildErrorWidget(marketProvider);
-          }
-
-          if (marketProvider.watchlist.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              await marketProvider.loadWatchlist();
-              await _loadMarketDistances();
+          return AsyncView(
+            isLoading: marketProvider.isLoading,
+            error: marketProvider.error,
+            onRetry: () {
+              marketProvider.clearError();
+              marketProvider.loadWatchlist();
+              _loadMarketDistances();
             },
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: marketProvider.watchlist.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final interest = marketProvider.watchlist[index];
-                return _buildMarketItem(interest);
-              },
-            ),
+            builder: (context) {
+              if (marketProvider.watchlist.isEmpty) {
+                return _buildEmptyState();
+              }
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await marketProvider.loadWatchlist();
+                  await _loadMarketDistances();
+                },
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: marketProvider.watchlist.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final interest = marketProvider.watchlist[index];
+                    return _buildMarketItem(interest);
+                  },
+                ),
+              );
+            },
           );
         },
       ),
@@ -341,44 +342,6 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
                   vertical: 12,
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(MarketProvider marketProvider) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '오류가 발생했습니다',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              marketProvider.error!,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                marketProvider.clearError();
-                marketProvider.loadWatchlist();
-                _loadMarketDistances();
-              },
-              child: const Text('다시 시도'),
             ),
           ],
         ),
