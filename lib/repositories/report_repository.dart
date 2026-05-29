@@ -1,3 +1,4 @@
+import '../models/market.dart';
 import '../services/api_service.dart';
 
 /// 신고(Report) 도메인 데이터 접근 계층.
@@ -9,6 +10,14 @@ class ReportRepository {
 
   /// 신고 첨부 이미지가 서빙되는 베이스 URL.
   String get imageBaseUrl => ApiService.baseUrl;
+
+  /// 신고 대상 시장 선택용 목록.
+  Future<List<Market>> getMarkets({
+    int page = 1,
+    int perPage = 100,
+    bool? isActive,
+  }) =>
+      _api.getMarkets(page: page, perPage: perPage, isActive: isActive);
 
   Future<List<Map<String, dynamic>>> getReports() => _api.getReports();
 

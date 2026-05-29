@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/market_provider.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../widgets/async_view.dart';
 import '../../models/user.dart';
 import 'user_management_screen.dart';
 import 'fcm_broadcast_screen.dart';
@@ -21,7 +22,7 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
   List<User> _users = [];
   bool _isLoading = false;
   String? _error;
@@ -39,7 +40,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     });
 
     try {
-      final users = await _apiService.getAllUsers();
+      final users = await _adminRepository.getAllUsers();
       setState(() {
         _users = users;
         _isLoading = false;
@@ -97,37 +98,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _buildDashboardContent(),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '데이터 로드 실패',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(_error!),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _loadDashboardData,
-            child: const Text('다시 시도'),
-          ),
-        ],
+      body: AsyncView(
+        isLoading: _isLoading,
+        error: _error,
+        onRetry: _loadDashboardData,
+        errorTitle: '데이터 로드 실패',
+        builder: (context) => _buildDashboardContent(),
       ),
     );
   }
