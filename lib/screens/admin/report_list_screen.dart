@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
-import '../../models/api_error.dart';
+import '../../repositories/report_repository.dart';
+import '../../widgets/async_view.dart';
 
 class ReportListScreen extends StatefulWidget {
   const ReportListScreen({super.key});
@@ -10,7 +10,7 @@ class ReportListScreen extends StatefulWidget {
 }
 
 class _ReportListScreenState extends State<ReportListScreen> {
-  final ApiService _apiService = ApiService();
+  final ReportRepository _reportRepository = ReportRepository();
   List<Map<String, dynamic>> _reports = [];
   bool _isLoading = true;
   String? _error;
@@ -32,7 +32,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
     });
 
     try {
-      final reports = await _apiService.getReports();
+      final reports = await _reportRepository.getReports();
       final Set<String> marketSet = {'전체 시장'};
       for (var report in reports) {
         if (report['market_name'] != null) {
@@ -51,9 +51,6 @@ class _ReportListScreenState extends State<ReportListScreen> {
       setState(() {
         _error = e.toString();
       });
-      if (e is ApiException && e.statusCode == 401) {
-        // 토큰 만료 등 처리 필요시
-      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -169,27 +166,16 @@ class _ReportListScreenState extends State<ReportListScreen> {
           const Divider(height: 1),
           // 리스트 영역
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                            const SizedBox(height: 16),
-                            Text('정보를 불러오는데 실패했습니다.\n$_error', textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadReports,
-                              child: const Text('다시 시도'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : filteredReports.isEmpty
-                        ? const Center(child: Text('해당 조건의 신고 내역이 없습니다.'))
-                        : ListView.builder(
+            child: AsyncView(
+              isLoading: _isLoading,
+              error: _error,
+              onRetry: _loadReports,
+              errorTitle: '정보를 불러오는데 실패했습니다',
+              builder: (context) {
+                if (filteredReports.isEmpty) {
+                  return const Center(child: Text('해당 조건의 신고 내역이 없습니다.'));
+                }
+                return ListView.builder(
                             itemCount: filteredReports.length,
                             itemBuilder: (context, index) {
                               final report = filteredReports[index];
@@ -201,7 +187,7 @@ class _ReportListScreenState extends State<ReportListScreen> {
                               final hasImage = imagePath != null && imagePath.toString().trim().isNotEmpty;
                               
                               // 이미지 URL 구성 (백엔드 URL + 경로)
-                              final String imageUrl = '${ApiService.baseUrl}$imagePath';
+                              final String imageUrl = '${_reportRepository.imageBaseUrl}$imagePath';
 
                               return Card(
                                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -262,7 +248,9 @@ class _ReportListScreenState extends State<ReportListScreen> {
                                 ),
                               );
                             },
-                          ),
+                          );
+              },
+            ),
           ),
         ],
       ),
