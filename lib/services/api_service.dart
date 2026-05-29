@@ -213,11 +213,12 @@ class ApiService {
 
   // 현재 날씨 조회
   Future<WeatherData> getCurrentWeather(WeatherRequest request) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/weather/current'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(request.toJson()),
-    ).timeout(_timeout);
+    // /api/weather/current 는 @login_required — 인증 헤더 + 401 토큰 갱신 필요.
+    final response = await _authenticatedRequest(() => http.post(
+          Uri.parse('$baseUrl/api/weather/current'),
+          headers: _authHeaders,
+          body: json.encode(request.toJson()),
+        ));
 
     final weatherResponse = _handleResponse(response, WeatherResponse.fromJson);
     final currentWeather = weatherResponse.currentWeather;
@@ -231,11 +232,12 @@ class ApiService {
 
   // 날씨 예보 조회
   Future<List<WeatherData>> getForecastWeather(WeatherRequest request) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/weather/forecast'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(request.toJson()),
-    ).timeout(_timeout);
+    // /api/weather/forecast 는 @login_required — 인증 헤더 + 401 토큰 갱신 필요.
+    final response = await _authenticatedRequest(() => http.post(
+          Uri.parse('$baseUrl/api/weather/forecast'),
+          headers: _authHeaders,
+          body: json.encode(request.toJson()),
+        ));
 
     final weatherResponse = _handleResponse(response, WeatherResponse.fromJson);
     return weatherResponse.forecastList;
