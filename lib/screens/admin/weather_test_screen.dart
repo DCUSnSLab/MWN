@@ -268,6 +268,7 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
                               const SizedBox(height: 16),
                               DropdownButtonFormField<User>(
                                 value: _selectedUser,
+                                isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: '사용자',
                                   prefixIcon: Icon(Icons.person),
@@ -371,6 +372,7 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
                               const SizedBox(height: 16),
                               DropdownButtonFormField<Market>(
                                 value: _selectedMarket,
+                                isExpanded: true,
                                 decoration: const InputDecoration(
                                   labelText: '시장',
                                   prefixIcon: Icon(Icons.store),
