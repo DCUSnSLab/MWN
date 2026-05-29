@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../services/api_service.dart';
+import '../../repositories/alert_log_repository.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
   final bool isAdmin; // 역할 구분 플래그
@@ -13,7 +11,7 @@ class AlertHistoryScreen extends StatefulWidget {
 }
 
 class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
-  // ... (기존 변수 유지)
+  final AlertLogRepository _alertLogRepository = AlertLogRepository();
   List<dynamic> _logs = [];
   bool _isLoading = false;
   int _currentPage = 1;
@@ -52,48 +50,24 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
     });
 
     try {
-      final token = ApiService().accessToken;
-      final baseUrl = ApiService.baseUrl;
-
-      // 역할에 따라 API 엔드포인트 분기
-      String endpoint = widget.isAdmin ? '/api/admin/logs/alerts' : '/api/user/logs/alerts';
-      String url = '$baseUrl$endpoint?page=$page&per_page=20';
-      
-      if (_selectedMarketId != null) {
-        url += '&market_id=$_selectedMarketId';
-      }
-
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final data = await _alertLogRepository.getAlertLogs(
+        isAdmin: widget.isAdmin,
+        page: page,
+        marketId: _selectedMarketId,
       );
 
       if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic> newLogs = data['logs'];
-        
-        setState(() {
-          if (page == 1) {
-            _logs = newLogs;
-          } else {
-            _logs.addAll(newLogs);
-          }
-          _currentPage = data['current_page'];
-          _hasNext = data['has_next'];
-          _isLoading = false;
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('데이터 로드 실패: ${response.statusCode}')),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      final List<dynamic> newLogs = data['logs'];
+      setState(() {
+        if (page == 1) {
+          _logs = newLogs;
+        } else {
+          _logs.addAll(newLogs);
+        }
+        _currentPage = data['current_page'];
+        _hasNext = data['has_next'];
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error fetching logs: $e');
       if (!mounted) return;
