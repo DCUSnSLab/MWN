@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../models/user.dart';
-import '../../../services/api_service.dart';
+import '../../../repositories/auth_repository.dart';
 
 /// 웹 관리자용 로그인 화면.
 ///
 /// 모바일 `LoginScreen` 은 `AuthProvider` -> `fcm_service` (웹 미지원) 그래프를
-/// 끌어오므로 재사용하지 않고, `ApiService` 를 직접 사용해 인증한다.
+/// 끌어오므로 재사용하지 않고, `AuthRepository`(웹 호환)로 직접 인증한다.
 class AdminWebLogin extends StatefulWidget {
   const AdminWebLogin({super.key, required this.onAuthenticated});
 
@@ -19,7 +19,7 @@ class _AdminWebLoginState extends State<AdminWebLogin> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final ApiService _api = ApiService();
+  final AuthRepository _api = AuthRepository();
 
   bool _obscure = true;
   bool _loading = false;

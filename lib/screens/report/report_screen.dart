@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../services/api_service.dart';
+import '../../repositories/report_repository.dart';
 import '../../models/market.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -21,7 +21,7 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ApiService _apiService = ApiService();
+  final ReportRepository _reportRepository = ReportRepository();
   
   bool _isLoading = false;
   List<Market> _markets = [];
@@ -49,7 +49,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Future<void> _loadMarkets() async {
     try {
-      final markets = await _apiService.getMarkets(isActive: true);
+      final markets = await _reportRepository.getMarkets(isActive: true);
       setState(() {
         _markets = markets;
         
@@ -118,7 +118,7 @@ class _ReportScreenState extends State<ReportScreen> {
     });
 
     try {
-      await _apiService.submitReport(
+      await _reportRepository.submitReport(
         marketId: marketId,
         reportType: _selectedReportType!,
         description: _descriptionController.text,
