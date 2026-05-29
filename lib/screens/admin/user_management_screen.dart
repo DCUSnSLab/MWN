@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../widgets/async_view.dart';
 import '../../models/user.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -10,7 +11,7 @@ class UserManagementScreen extends StatefulWidget {
 }
 
 class _UserManagementScreenState extends State<UserManagementScreen> {
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
   List<User> _users = [];
   List<User> _filteredUsers = [];
   bool _isLoading = false;
@@ -29,7 +30,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     });
 
     try {
-      final users = await _apiService.getAllUsers();
+      final users = await _adminRepository.getAllUsers();
       setState(() {
         _users = users;
         _filteredUsers = users;
@@ -107,31 +108,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
           // 사용자 목록
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? _buildErrorWidget()
-                    : _buildUserList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
-          Text('사용자 목록 로드 실패', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(_error!),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _loadUsers,
-            child: const Text('다시 시도'),
+            child: AsyncView(
+              isLoading: _isLoading,
+              error: _error,
+              onRetry: _loadUsers,
+              errorTitle: '사용자 목록 로드 실패',
+              builder: (context) => _buildUserList(),
+            ),
           ),
         ],
       ),
@@ -312,7 +295,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
   
   String _selectedRole = 'user';
   bool _isLoading = false;
@@ -335,7 +318,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
     });
 
     try {
-      await _apiService.createUser(
+      await _adminRepository.createUser(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
