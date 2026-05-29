@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+import '../../repositories/admin_repository.dart';
+import '../../widgets/async_view.dart';
 import '../../models/market.dart';
 import '../../models/alert_conditions.dart';
 
@@ -11,7 +12,7 @@ class WeatherManagementScreen extends StatefulWidget {
 }
 
 class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
-  final ApiService _apiService = ApiService();
+  final AdminRepository _adminRepository = AdminRepository();
   List<UserMarketInterest> _watchlist = [];
   bool _isLoading = false;
   String? _error;
@@ -30,7 +31,7 @@ class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
 
     try {
       // 관심 시장 목록 가져오기
-      final watchlist = await _apiService.getWatchlist();
+      final watchlist = await _adminRepository.getWatchlist();
       setState(() {
         _watchlist = watchlist;
         _isLoading = false;
@@ -57,30 +58,12 @@ class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorWidget()
-              : _buildMarketList(),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.red),
-          const SizedBox(height: 16),
-          Text('데이터 로드 실패', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(_error!),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _loadMarkets,
-            child: const Text('다시 시도'),
-          ),
-        ],
+      body: AsyncView(
+        isLoading: _isLoading,
+        error: _error,
+        onRetry: _loadMarkets,
+        errorTitle: '데이터 로드 실패',
+        builder: (context) => _buildMarketList(),
       ),
     );
   }
@@ -136,7 +119,7 @@ class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
       builder: (context) => _AlertConditionsDialog(
         marketId: interest.marketId,
         marketName: interest.marketName ?? '시장 ${interest.marketId}',
-        apiService: _apiService,
+        adminRepository: _adminRepository,
       ),
     );
   }
@@ -145,12 +128,12 @@ class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
 class _AlertConditionsDialog extends StatefulWidget {
   final int marketId;
   final String marketName;
-  final ApiService apiService;
+  final AdminRepository adminRepository;
 
   const _AlertConditionsDialog({
     required this.marketId,
     required this.marketName,
-    required this.apiService,
+    required this.adminRepository,
   });
 
   @override
@@ -196,7 +179,7 @@ class _AlertConditionsDialogState extends State<_AlertConditionsDialog> {
 
   Future<void> _loadAlertConditions() async {
     try {
-      final response = await widget.apiService.getMarketAlertConditions(widget.marketId);
+      final response = await widget.adminRepository.getMarketAlertConditions(widget.marketId);
       setState(() {
         _conditions = response.alertConditions;
         _enabled = _conditions!.enabled;
@@ -238,7 +221,7 @@ class _AlertConditionsDialogState extends State<_AlertConditionsDialog> {
         'wind_enabled': _windEnabled,
       };
 
-      await widget.apiService.updateMarketAlertConditions(
+      await widget.adminRepository.updateMarketAlertConditions(
         widget.marketId,
         updateData,
       );
