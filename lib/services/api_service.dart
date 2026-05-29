@@ -802,6 +802,26 @@ class ApiService {
   }
 
   // 토큰 자동 갱신을 포함한 인증된 요청
+  // 알림 발송 이력 조회 (관리자/사용자). 401 시 토큰 자동 갱신.
+  Future<Map<String, dynamic>> getAlertLogs({
+    required bool isAdmin,
+    int page = 1,
+    int perPage = 20,
+    int? marketId,
+  }) async {
+    final endpoint = isAdmin ? '/api/admin/logs/alerts' : '/api/user/logs/alerts';
+    final params = <String, String>{'page': '$page', 'per_page': '$perPage'};
+    if (marketId != null) params['market_id'] = '$marketId';
+    final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: params);
+
+    final response =
+        await _authenticatedRequest(() => http.get(uri, headers: _authHeaders));
+    if (response.statusCode == 200) {
+      return json.decode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    }
+    throw ApiException('알림 이력 조회 실패', response.statusCode);
+  }
+
   Future<http.Response> _authenticatedRequest(
     Future<http.Response> Function() request,
   ) async {
