@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/market.dart';
 import '../models/weather.dart';
 import '../services/market_service.dart';
+import '../utils/logger.dart';
 
 class MarketProvider with ChangeNotifier {
   final MarketService _marketService = MarketService();
@@ -12,6 +13,10 @@ class MarketProvider with ChangeNotifier {
   // Re-adding missing fields
   List<UserMarketInterest> _nearbyMarkets = [];
   Map<int, WeatherData> _nearbyMarketsWeather = {};
+  // 지도 뷰용: 관심 시장 전체의 날씨 캐시 (lazy 로드)
+  Map<int, WeatherData> _watchlistWeather = {};
+  bool _isWatchlistWeatherLoading = false;
+  String? _watchlistWeatherError;
   bool _isLoading = false;
   String? _error;
 
@@ -25,6 +30,9 @@ class MarketProvider with ChangeNotifier {
   List<Market> get searchResults => _searchResults;
   List<UserMarketInterest> get nearbyMarkets => _nearbyMarkets;
   Map<int, WeatherData> get nearbyMarketsWeather => _nearbyMarketsWeather;
+  Map<int, WeatherData> get watchlistWeather => _watchlistWeather;
+  bool get isWatchlistWeatherLoading => _isWatchlistWeatherLoading;
+  String? get watchlistWeatherError => _watchlistWeatherError;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasWatchedMarkets => _watchlist.isNotEmpty;
@@ -69,11 +77,13 @@ class MarketProvider with ChangeNotifier {
         // 초기 로드 시 visibleCount 초기화 및 날씨 캐시 초기화 (새로고침 시 최신 데이터 요청)
         _visibleCount = _maxVisibleCount;
         _nearbyMarketsWeather = {};
+        _watchlistWeather = {};
         await updateNearbyMarketsWeather(init: true);
       } else {
         _allNearbyMarkets = [];
         _nearbyMarkets = [];
         _nearbyMarketsWeather = {};
+        _watchlistWeather = {};
         _hasMoreMarkets = false;
       }
     } catch (e) {
@@ -144,9 +154,10 @@ class MarketProvider with ChangeNotifier {
   Future<void> updateNearbyMarketsWeather({bool init = false}) async {
     try {
       if (init) {
-        print('🔄 전체 정렬된 시장 목록 업데이트 중...');
-        // 전체 정렬된 리스트 가져오기
-        _allNearbyMarkets = await _marketService.getAllSortedWatchedMarkets();
+        log('🔄 전체 정렬된 시장 목록 업데이트 중...');
+        // 전체 정렬된 리스트 가져오기 (이미 fetch 한 _watchlist 재사용)
+        _allNearbyMarkets =
+            await _marketService.getAllSortedWatchedMarkets(watchlist: _watchlist);
       }
 
       // 보여줄 시장 개수 조정 (최대 10개로 제한)
@@ -160,7 +171,7 @@ class MarketProvider with ChangeNotifier {
 
       // 현재 보여줄 목록 슬라이싱
       _nearbyMarkets = _allNearbyMarkets.take(_visibleCount).toList();
-      print('✅ 현재 보여줄 시장: ${_nearbyMarkets.length}개 / 전체 ${_allNearbyMarkets.length}개');
+      log('✅ 현재 보여줄 시장: ${_nearbyMarkets.length}개 / 전체 ${_allNearbyMarkets.length}개');
 
       // 날씨 정보가 없는 시장만 필터링 (불필요한 중복 호출 방지)
       final marketsToFetch = _nearbyMarkets.where((market) {
@@ -168,19 +179,70 @@ class MarketProvider with ChangeNotifier {
       }).toList();
 
       if (marketsToFetch.isNotEmpty) {
-        print('Cloud: ${marketsToFetch.length}개 시장의 날씨 정보를 새로 가져옵니다.');
+        log('Cloud: ${marketsToFetch.length}개 시장의 날씨 정보를 새로 가져옵니다.');
         final newWeatherMap = await _marketService.getMultipleMarketsWeather(marketsToFetch);
-        
+
         // 기존 맵에 병합
         _nearbyMarketsWeather.addAll(newWeatherMap);
+        // 지도 뷰 캐시에도 반영 (nearby 결과를 재사용)
+        _watchlistWeather.addAll(newWeatherMap);
       } else {
-        print('Skip: 보여줄 모든 시장의 날씨 정보가 이미 있습니다.');
+        log('Skip: 보여줄 모든 시장의 날씨 정보가 이미 있습니다.');
       }
 
       notifyListeners();
     } catch (e) {
-      print('❌ 시장 날씨 업데이트 오류: $e');
+      log('❌ 시장 날씨 업데이트 오류: $e');
     }
+  }
+
+  /// 지도 뷰에서 사용할 관심 시장 전체의 날씨를 로드한다.
+  ///
+  /// nearby 결과를 시드로 두고, 누락된 시장만 추가로 가져온다.
+  /// `force=true` 면 캐시를 비우고 전체를 새로 받는다.
+  Future<void> loadWatchlistWeather({bool force = false}) async {
+    if (_watchlist.isEmpty) return;
+    if (_isWatchlistWeatherLoading) return;
+
+    if (force) {
+      _watchlistWeather = {};
+    } else {
+      // nearby에서 이미 받은 데이터를 시드로 사용
+      _watchlistWeather = {..._watchlistWeather, ..._nearbyMarketsWeather};
+    }
+
+    final toFetch = _watchlist
+        .where((m) => !_watchlistWeather.containsKey(m.marketId))
+        .toList();
+    if (toFetch.isEmpty) {
+      notifyListeners();
+      return;
+    }
+
+    _isWatchlistWeatherLoading = true;
+    _watchlistWeatherError = null;
+    notifyListeners();
+    try {
+      log('🗺️ 지도용 날씨 ${toFetch.length}개 추가 로드...');
+      final fetched = await _marketService.getMultipleMarketsWeather(toFetch);
+      _watchlistWeather.addAll(fetched);
+      // 모두 실패하면 에러로 간주
+      if (fetched.isEmpty && toFetch.isNotEmpty) {
+        _watchlistWeatherError = '날씨 정보를 가져오지 못했습니다.';
+      }
+    } catch (e) {
+      log('❌ 지도용 날씨 로드 오류: $e');
+      _watchlistWeatherError = '날씨 정보를 가져오지 못했습니다.';
+    } finally {
+      _isWatchlistWeatherLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void clearWatchlistWeatherError() {
+    if (_watchlistWeatherError == null) return;
+    _watchlistWeatherError = null;
+    notifyListeners();
   }
 
   // 더 보기 (페이지네이션)
@@ -192,13 +254,13 @@ class MarketProvider with ChangeNotifier {
       final nextCount = _visibleCount + 10;
       _visibleCount = nextCount;
       
-      print('🔄 시장 목록 더 불러오기 (목표: $_visibleCount개)...');
+      log('🔄 시장 목록 더 불러오기 (목표: $_visibleCount개)...');
       
       // 날씨 업데이트 (이미 정렬된 리스트에서 슬라이싱만 변경)
       await updateNearbyMarketsWeather(init: false);
       
     } catch (e) {
-      print('❌ 더 보기 오류: $e');
+      log('❌ 더 보기 오류: $e');
     }
   }
 

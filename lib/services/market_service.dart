@@ -3,6 +3,7 @@ import '../models/market.dart';
 import '../models/weather.dart';
 import 'api_service.dart';
 import 'location_service.dart';
+import '../utils/logger.dart';
 
 class MarketService {
   final ApiService _apiService = ApiService();
@@ -93,25 +94,29 @@ class MarketService {
 
       return closestMarket;
     } catch (e) {
-      print('Error finding closest market: $e');
+      log('Error finding closest market: $e');
       return null;
     }
   }
 
   // 현재 위치에서 가까운 순으로 N개의 관심 시장 가져오기
-  Future<List<UserMarketInterest>> getNearbyWatchedMarkets({int limit = 5}) async {
+  // `watchlist`가 주어지면 재요청하지 않고 재사용 (불필요한 네트워크 절감)
+  Future<List<UserMarketInterest>> getNearbyWatchedMarkets({
+    int limit = 5,
+    List<UserMarketInterest>? watchlist,
+  }) async {
     try {
       // 현재 위치 가져오기
       final position = await _locationService.getCurrentPosition();
       if (position == null) {
-        print('⚠️ 현재 위치를 가져올 수 없습니다');
+        log('⚠️ 현재 위치를 가져올 수 없습니다');
         return [];
       }
 
-      // 관심 시장 목록 가져오기
-      final watchlist = await getWatchlist();
+      // 관심 시장 목록 가져오기 (캐시 우선)
+      watchlist ??= await getWatchlist();
       if (watchlist.isEmpty) {
-        print('⚠️ 관심 시장이 없습니다');
+        log('⚠️ 관심 시장이 없습니다');
         return [];
       }
 
@@ -121,7 +126,7 @@ class MarketService {
       }).toList();
 
       if (marketsWithCoordinates.isEmpty) {
-        print('⚠️ 좌표가 있는 관심 시장이 없습니다');
+        log('⚠️ 좌표가 있는 관심 시장이 없습니다');
         return [];
       }
 
@@ -148,23 +153,26 @@ class MarketService {
           .map((item) => item['interest'] as UserMarketInterest)
           .toList();
 
-      print('✅ 가까운 시장 ${nearbyMarkets.length}개 찾음');
+      log('✅ 가까운 시장 ${nearbyMarkets.length}개 찾음');
       return nearbyMarkets;
     } catch (e) {
-      print('❌ 가까운 시장 찾기 오류: $e');
+      log('❌ 가까운 시장 찾기 오류: $e');
       return [];
     }
   }
 
   // 현재 위치에서 가까운 순으로 모든 관심 시장 가져오기 (페이지네이션용)
-  Future<List<UserMarketInterest>> getAllSortedWatchedMarkets() async {
+  // `watchlist`가 주어지면 재요청하지 않고 재사용
+  Future<List<UserMarketInterest>> getAllSortedWatchedMarkets({
+    List<UserMarketInterest>? watchlist,
+  }) async {
     try {
       // 현재 위치 가져오기
       final position = await _locationService.getCurrentPosition();
       if (position == null) return [];
 
-      // 관심 시장 목록 가져오기
-      final watchlist = await getWatchlist();
+      // 관심 시장 목록 가져오기 (캐시 우선)
+      watchlist ??= await getWatchlist();
       if (watchlist.isEmpty) return [];
 
       // 좌표가 있는 관심 시장들만 필터링
@@ -195,7 +203,7 @@ class MarketService {
           .map((item) => item['interest'] as UserMarketInterest)
           .toList();
     } catch (e) {
-      print('❌ 전체 정렬 시장 조회 오류: $e');
+      log('❌ 전체 정렬 시장 조회 오류: $e');
       return [];
     }
   }
@@ -206,7 +214,7 @@ class MarketService {
       // 1. 현재 위치 가져오기
       final position = await _locationService.getCurrentPosition();
       if (position == null) {
-        print('⚠️ 현재 위치를 가져올 수 없습니다');
+        log('⚠️ 현재 위치를 가져올 수 없습니다');
         return [];
       }
 
@@ -240,7 +248,7 @@ class MarketService {
           .toList();
           
     } catch (e) {
-      print('❌ 전체 시장 중 가까운 시장 찾기 오류: $e');
+      log('❌ 전체 시장 중 가까운 시장 찾기 오류: $e');
       return [];
     }
   }
@@ -267,8 +275,8 @@ class MarketService {
           final weather = await _apiService.getCurrentWeather(request);
           return {'marketId': interest.marketId, 'weather': weather};
         } catch (e, stackTrace) {
-          print('❌ ${interest.marketName} (${interest.marketId}) 날씨 조회 실패: $e');
-          print(stackTrace);
+          log('❌ ${interest.marketName} (${interest.marketId}) 날씨 조회 실패: $e');
+          log(stackTrace);
           return null;
         }
       });
@@ -285,9 +293,9 @@ class MarketService {
         }
       }
 
-      print('✅ ${weatherMap.length}개 시장의 날씨 조회 완료');
+      log('✅ ${weatherMap.length}개 시장의 날씨 조회 완료');
     } catch (e) {
-      print('❌ 날씨 조회 오류: $e');
+      log('❌ 날씨 조회 오류: $e');
     }
 
     return weatherMap;
@@ -307,7 +315,7 @@ class MarketService {
 
       return await _apiService.getCurrentWeather(request);
     } catch (e) {
-      print('Error getting market weather: $e');
+      log('Error getting market weather: $e');
       return null;
     }
   }
@@ -326,7 +334,7 @@ class MarketService {
 
       return await _apiService.getForecastWeather(request);
     } catch (e) {
-      print('Error getting market forecast: $e');
+      log('Error getting market forecast: $e');
       return [];
     }
   }
