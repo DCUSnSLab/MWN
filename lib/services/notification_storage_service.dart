@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/notification_item.dart';
+import '../utils/logger.dart';
 
 class NotificationStorageService {
   static const String _key = 'notifications_history';
@@ -31,9 +32,9 @@ class NotificationStorageService {
       final jsonList = notifications.map((n) => n.toJson()).toList();
       await prefs.setString(_key, json.encode(jsonList));
 
-      print('✅ 알림 저장 완료: ${item.title}');
+      log('✅ 알림 저장 완료: ${item.title}');
     } catch (e) {
-      print('❌ 알림 저장 실패: $e');
+      log('❌ 알림 저장 실패: $e');
     }
   }
 
@@ -52,7 +53,7 @@ class NotificationStorageService {
           .map((json) => NotificationItem.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('❌ 알림 불러오기 실패: $e');
+      log('❌ 알림 불러오기 실패: $e');
       return [];
     }
   }
@@ -67,9 +68,9 @@ class NotificationStorageService {
       final jsonList = notifications.map((n) => n.toJson()).toList();
       await prefs.setString(_key, json.encode(jsonList));
 
-      print('✅ 알림 삭제 완료: $id');
+      log('✅ 알림 삭제 완료: $id');
     } catch (e) {
-      print('❌ 알림 삭제 실패: $e');
+      log('❌ 알림 삭제 실패: $e');
     }
   }
 
@@ -78,9 +79,9 @@ class NotificationStorageService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_key);
-      print('✅ 모든 알림 삭제 완료');
+      log('✅ 모든 알림 삭제 완료');
     } catch (e) {
-      print('❌ 알림 전체 삭제 실패: $e');
+      log('❌ 알림 전체 삭제 실패: $e');
     }
   }
 

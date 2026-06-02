@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../repositories/alert_log_repository.dart';
+import '../../utils/logger.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
   final bool isAdmin; // 역할 구분 플래그
@@ -69,7 +70,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching logs: $e');
+      log('Error fetching logs: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),

@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
+import '../../utils/logger.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -87,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // 여기서는 별도의 네비게이션이 필요 없음
       } else {
         // 로그인 실패 시 에러 메시지가 authProvider.error에 설정됨
-        print('로그인 실패: ${authProvider.error}');
+        log('로그인 실패: ${authProvider.error}');
       }
     }
   }
