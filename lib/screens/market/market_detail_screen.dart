@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import '../../models/market.dart';
 import '../../models/weather.dart';
+import '../../providers/market_provider.dart';
 import '../../widgets/market_weather_widget.dart';
 import '../report/report_screen.dart';
 
@@ -17,6 +19,16 @@ class MarketDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 호출자가 weather 를 명시적으로 넘기지 않은 경우 (예: 지도 바텀시트의 "상세 보기"),
+    // MarketProvider 의 캐시(watchlist 우선, nearby fallback)를 사용한다.
+    // context.select 로 해당 시장의 entry 변경 시에만 rebuild.
+    final effectiveWeather = weather ??
+        context.select<MarketProvider, WeatherData?>(
+          (p) =>
+              p.watchlistWeather[market.marketId] ??
+              p.nearbyMarketsWeather[market.marketId],
+        );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(market.marketName ?? '시장 상세'),
@@ -29,9 +41,9 @@ class MarketDetailScreen extends StatelessWidget {
             // Reusing the Weather Widget for consistency
             MarketWeatherWidget(
               market: market,
-              weather: weather,
+              weather: effectiveWeather,
               // Disable refresh in detail view or implement if needed
-              onRefresh: null, 
+              onRefresh: null,
             ),
             
             SizedBox(height: 24.h),
