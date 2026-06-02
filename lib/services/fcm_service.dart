@@ -1,13 +1,15 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:io';
 import 'api_service.dart';
 import 'notification_storage_service.dart';
 import '../models/notification_item.dart';
 import '../main.dart';
 import '../screens/notifications/notification_history_screen.dart';
+import '../utils/logger.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -22,10 +24,15 @@ class FCMService {
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
 
+  // Firebase stream subscriptions — 명시적으로 보유했다가 dispose 시 cancel
+  StreamSubscription<String>? _tokenRefreshSub;
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
+
   // FCM 초기화
   Future<void> initialize() async {
     try {
-      print('🔥 FCM 초기화 시작 (${Platform.isIOS ? 'iOS' : 'Android'})');
+      log('🔥 FCM 초기화 시작 (${Platform.isIOS ? 'iOS' : 'Android'})');
       
       // 로컬 알림 초기화
       await _initializeLocalNotifications();
@@ -41,51 +48,55 @@ class FCMService {
         sound: true,
       );
 
-      print('📱 FCM 권한 상태: ${settings.authorizationStatus}');
-      print('📱 알림 설정 - Alert: ${settings.alert}, Badge: ${settings.badge}, Sound: ${settings.sound}');
+      log('📱 FCM 권한 상태: ${settings.authorizationStatus}');
+      log('📱 알림 설정 - Alert: ${settings.alert}, Badge: ${settings.badge}, Sound: ${settings.sound}');
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('✅ FCM 권한 허용됨');
+        log('✅ FCM 권한 허용됨');
         
         // iOS에서 APNS 토큰 등록 대기
         if (Platform.isIOS) {
-          print('🍎 iOS APNS 토큰 등록 대기 중...');
+          log('🍎 iOS APNS 토큰 등록 대기 중...');
           await _waitForAPNSToken();
         }
         
         // FCM 토큰 획득 (APNS 등록 후)
         await _getFCMToken();
         
-        // 토큰 갱신 리스너
-        _firebaseMessaging.onTokenRefresh.listen((newToken) {
-          print('🔄 FCM 토큰 갱신: ${newToken.substring(0, 50)}...');
+        // 토큰 갱신 리스너 (재초기화 대비, 기존 구독은 해제)
+        await _tokenRefreshSub?.cancel();
+        _tokenRefreshSub = _firebaseMessaging.onTokenRefresh.listen((newToken) {
+          log('🔄 FCM 토큰 갱신: ${newToken.substring(0, 50)}...');
           _fcmToken = newToken;
           _registerTokenToServer();
         });
-        
+
         // 포그라운드 메시지 처리
-        FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-        
+        await _onMessageSub?.cancel();
+        _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
         // 백그라운드 메시지 클릭 처리
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessageClick);
+        await _onMessageOpenedSub?.cancel();
+        _onMessageOpenedSub =
+            FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessageClick);
         
         // 앱이 종료된 상태에서 알림 클릭으로 앱이 시작된 경우
         FirebaseMessaging.instance.getInitialMessage().then((message) {
           if (message != null) {
-            print('📬 앱 시작 시 메시지 있음: ${message.messageId}');
+            log('📬 앱 시작 시 메시지 있음: ${message.messageId}');
             _handleBackgroundMessageClick(message);
           }
         });
         
-        print('🎯 FCM 초기화 완료');
+        log('🎯 FCM 초기화 완료');
         
       } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        print('❌ FCM 권한 거부됨 - 설정에서 알림을 허용해주세요');
+        log('❌ FCM 권한 거부됨 - 설정에서 알림을 허용해주세요');
       } else {
-        print('⚠️ FCM 권한 상태: ${settings.authorizationStatus}');
+        log('⚠️ FCM 권한 상태: ${settings.authorizationStatus}');
       }
     } catch (e) {
-      print('💥 FCM 초기화 오류: $e');
+      log('💥 FCM 초기화 오류: $e');
     }
   }
 
@@ -100,20 +111,20 @@ class FCMService {
       // APNS 토큰이 없으면 최대 10초 대기
       int attempts = 0;
       while (apnsToken == null && attempts < 20) {
-        print('🍎 APNS 토큰 대기 중... (${attempts + 1}/20)');
+        log('🍎 APNS 토큰 대기 중... (${attempts + 1}/20)');
         await Future.delayed(const Duration(milliseconds: 500));
         apnsToken = await _firebaseMessaging.getAPNSToken();
         attempts++;
       }
       
       if (apnsToken != null) {
-        print('✅ APNS 토큰 획득 성공: ${apnsToken.substring(0, 20)}...');
+        log('✅ APNS 토큰 획득 성공: ${apnsToken.substring(0, 20)}...');
       } else {
-        print('⚠️ APNS 토큰 획득 실패 - AppDelegate.swift 설정을 확인해주세요');
-        print('💡 해결 방법: iOS Simulator에서는 APNS가 작동하지 않습니다. 실제 기기를 사용해주세요.');
+        log('⚠️ APNS 토큰 획득 실패 - AppDelegate.swift 설정을 확인해주세요');
+        log('💡 해결 방법: iOS Simulator에서는 APNS가 작동하지 않습니다. 실제 기기를 사용해주세요.');
       }
     } catch (e) {
-      print('💥 APNS 토큰 확인 중 오류: $e');
+      log('💥 APNS 토큰 확인 중 오류: $e');
     }
   }
 
@@ -124,35 +135,35 @@ class FCMService {
       if (Platform.isIOS) {
         String? apnsToken = await _firebaseMessaging.getAPNSToken();
         if (apnsToken == null) {
-          print('⚠️ APNS 토큰이 아직 없음 - FCM 토큰 요청을 잠시 지연');
+          log('⚠️ APNS 토큰이 아직 없음 - FCM 토큰 요청을 잠시 지연');
           await Future.delayed(const Duration(seconds: 2));
         } else {
-          print('✅ APNS 토큰 확인됨 - FCM 토큰 요청 진행');
+          log('✅ APNS 토큰 확인됨 - FCM 토큰 요청 진행');
         }
       }
       
       _fcmToken = await _firebaseMessaging.getToken();
       
       if (_fcmToken != null) {
-        print('🎯 FCM 토큰 획득 성공: ${_fcmToken!.substring(0, 50)}...');
+        log('🎯 FCM 토큰 획득 성공: ${_fcmToken!.substring(0, 50)}...');
         await _registerTokenToServer();
       } else {
-        print('❌ FCM 토큰 획득 실패');
+        log('❌ FCM 토큰 획득 실패');
       }
     } catch (e) {
-      print('💥 FCM 토큰 획득 오류: $e');
+      log('💥 FCM 토큰 획득 오류: $e');
       // iOS APNS 토큰 오류인 경우 재시도
       if (Platform.isIOS && e.toString().contains('APNS token')) {
-        print('🔄 APNS 토큰 오류 감지 - 5초 후 재시도');
+        log('🔄 APNS 토큰 오류 감지 - 5초 후 재시도');
         await Future.delayed(const Duration(seconds: 5));
         try {
           _fcmToken = await _firebaseMessaging.getToken();
           if (_fcmToken != null) {
-            print('✅ FCM 토큰 재시도 성공: ${_fcmToken!.substring(0, 50)}...');
+            log('✅ FCM 토큰 재시도 성공: ${_fcmToken!.substring(0, 50)}...');
             await _registerTokenToServer();
           }
         } catch (retryError) {
-          print('💥 FCM 토큰 재시도 실패: $retryError');
+          log('💥 FCM 토큰 재시도 실패: $retryError');
         }
       }
     }
@@ -161,12 +172,12 @@ class FCMService {
   // 서버에 FCM 토큰 등록
   Future<void> _registerTokenToServer() async {
     if (_fcmToken == null) {
-      print('❌ FCM 토큰이 없어서 서버 등록을 건너뜁니다');
+      log('❌ FCM 토큰이 없어서 서버 등록을 건너뜁니다');
       return;
     }
     
     if (!_apiService.isLoggedIn) {
-      print('❌ 로그인되지 않아서 FCM 토큰 등록을 건너뜁니다');
+      log('❌ 로그인되지 않아서 FCM 토큰 등록을 건너뜁니다');
       return;
     }
     
@@ -176,32 +187,32 @@ class FCMService {
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      print('🔄 FCM 토큰 서버 등록 시작 - 토큰: ${_fcmToken!.substring(0, 50)}...');
+      log('🔄 FCM 토큰 서버 등록 시작 - 토큰: ${_fcmToken!.substring(0, 50)}...');
       await _apiService.registerFCMToken(_fcmToken!, deviceInfo);
-      print('✅ FCM 토큰 서버 등록 성공');
+      log('✅ FCM 토큰 서버 등록 성공');
     } catch (e) {
-      print('💥 FCM 토큰 서버 등록 실패: $e');
+      log('💥 FCM 토큰 서버 등록 실패: $e');
       // 등록 실패해도 앱 동작은 계속
     }
   }
 
   // 로그인 후 FCM 토큰 등록 (수동 호출용)
   Future<void> registerTokenAfterLogin() async {
-    print('🔄 로그인 후 FCM 토큰 등록 프로세스 시작');
+    log('🔄 로그인 후 FCM 토큰 등록 프로세스 시작');
     
     if (_fcmToken != null) {
-      print('✅ 기존 FCM 토큰 있음 - 서버 등록 시도');
+      log('✅ 기존 FCM 토큰 있음 - 서버 등록 시도');
       await _registerTokenToServer();
     } else {
-      print('⚠️ FCM 토큰 없음 - 새로 생성 후 등록');
+      log('⚠️ FCM 토큰 없음 - 새로 생성 후 등록');
       await _getFCMToken();
     }
     
     // 등록 후 최종 상태 확인
     if (_fcmToken != null) {
-      print('✅ FCM 토큰 등록 프로세스 완료 - 토큰: ${_fcmToken!.substring(0, 50)}...');
+      log('✅ FCM 토큰 등록 프로세스 완료 - 토큰: ${_fcmToken!.substring(0, 50)}...');
     } else {
-      print('❌ FCM 토큰 등록 프로세스 실패 - 토큰이 여전히 없음');
+      log('❌ FCM 토큰 등록 프로세스 실패 - 토큰이 여전히 없음');
     }
   }
 
@@ -231,7 +242,7 @@ class FCMService {
 
   // 알림 탭 처리
   void _onNotificationTapped(NotificationResponse notificationResponse) {
-    print('알림 탭됨: ${notificationResponse.payload}');
+    log('알림 탭됨: ${notificationResponse.payload}');
     final payload = notificationResponse.payload;
     if (payload != null) {
       MyApp.navigatorKey.currentState?.push(
@@ -246,13 +257,13 @@ class FCMService {
 
   // 포그라운드 메시지 처리
   void _handleForegroundMessage(RemoteMessage message) {
-    print('📨 포그라운드 FCM 메시지 수신:');
-    print('📬 메시지 ID: ${message.messageId}');
-    print('📰 제목: ${message.notification?.title}');
-    print('📝 내용: ${message.notification?.body}');
-    print('📦 데이터: ${message.data}');
-    print('🏷️ From: ${message.from}');
-    print('⏰ 전송 시간: ${message.sentTime}');
+    log('📨 포그라운드 FCM 메시지 수신:');
+    log('📬 메시지 ID: ${message.messageId}');
+    log('📰 제목: ${message.notification?.title}');
+    log('📝 내용: ${message.notification?.body}');
+    log('📦 데이터: ${message.data}');
+    log('🏷️ From: ${message.from}');
+    log('⏰ 전송 시간: ${message.sentTime}');
 
     // 알림 저장하고 ID 받기
     final notificationId = _saveNotificationToStorage(message);
@@ -292,10 +303,10 @@ class FCMService {
 
   // 백그라운드 메시지 클릭 처리
   void _handleBackgroundMessageClick(RemoteMessage message) {
-    print('백그라운드 FCM 메시지 클릭:');
-    print('제목: ${message.notification?.title}');
-    print('내용: ${message.notification?.body}');
-    print('데이터: ${message.data}');
+    log('백그라운드 FCM 메시지 클릭:');
+    log('제목: ${message.notification?.title}');
+    log('내용: ${message.notification?.body}');
+    log('데이터: ${message.data}');
 
     // 알림 저장하고 ID 받기
     final notificationId = _saveNotificationToStorage(message);
@@ -325,7 +336,7 @@ class FCMService {
       _storageService.saveNotification(notification);
       return id;
     } catch (e) {
-      print('❌ 알림 저장 중 오류: $e');
+      log('❌ 알림 저장 중 오류: $e');
       return message.messageId ?? '';
     }
   }
@@ -334,9 +345,9 @@ class FCMService {
   Future<void> subscribeToTopic(String topic) async {
     try {
       await _firebaseMessaging.subscribeToTopic(topic);
-      print('주제 구독 성공: $topic');
+      log('주제 구독 성공: $topic');
     } catch (e) {
-      print('주제 구독 실패: $e');
+      log('주제 구독 실패: $e');
     }
   }
 
@@ -344,9 +355,9 @@ class FCMService {
   Future<void> unsubscribeFromTopic(String topic) async {
     try {
       await _firebaseMessaging.unsubscribeFromTopic(topic);
-      print('주제 구독 해제 성공: $topic');
+      log('주제 구독 해제 성공: $topic');
     } catch (e) {
-      print('주제 구독 해제 실패: $e');
+      log('주제 구독 해제 실패: $e');
     }
   }
 
@@ -356,7 +367,7 @@ class FCMService {
       await _apiService.sendTestFCMNotification();
       return true;
     } catch (e) {
-      print('테스트 알림 요청 실패: $e');
+      log('테스트 알림 요청 실패: $e');
       return false;
     }
   }
@@ -368,7 +379,7 @@ class FCMService {
     }
 
     try {
-      print('🔍 iOS FCM 상태 진단 시작...');
+      log('🔍 iOS FCM 상태 진단 시작...');
       
       final settings = await _firebaseMessaging.getNotificationSettings();
       final apnsToken = await _firebaseMessaging.getAPNSToken();
@@ -378,11 +389,11 @@ class FCMService {
       final isSimulator = await _isIOSSimulator();
       final bundleId = await _getBundleIdentifier();
       
-      print('📱 기기 타입: ${isSimulator ? "시뮬레이터" : "실기기"}');
-      print('📦 Bundle ID: $bundleId');
-      print('🔐 권한 상태: ${settings.authorizationStatus}');
-      print('🍎 APNS 토큰: ${apnsToken != null ? "있음" : "없음"}');
-      print('🔥 FCM 토큰: ${fcmToken != null ? "있음" : "없음"}');
+      log('📱 기기 타입: ${isSimulator ? "시뮬레이터" : "실기기"}');
+      log('📦 Bundle ID: $bundleId');
+      log('🔐 권한 상태: ${settings.authorizationStatus}');
+      log('🍎 APNS 토큰: ${apnsToken != null ? "있음" : "없음"}');
+      log('🔥 FCM 토큰: ${fcmToken != null ? "있음" : "없음"}');
 
       return {
         'platform': 'ios',
@@ -404,7 +415,7 @@ class FCMService {
         'firebase_app_check': await _checkFirebaseConnection(),
       };
     } catch (e) {
-      print('💥 iOS FCM 상태 확인 오류: $e');
+      log('💥 iOS FCM 상태 확인 오류: $e');
       return {
         'platform': 'ios',
         'error': e.toString(),
@@ -450,20 +461,30 @@ class FCMService {
   // iOS 알림 설정 페이지로 이동하는 도우미 메서드
   void openIOSNotificationSettings() {
     if (Platform.isIOS) {
-      print('💡 iOS 알림 설정을 확인하려면:');
-      print('   설정 > 알림 > MWN > 알림 허용을 ON으로 설정하세요');
-      print('   또한 포그라운드에서 알림을 보려면 "배너" 또는 "알림"을 활성화해야 합니다');
+      log('💡 iOS 알림 설정을 확인하려면:');
+      log('   설정 > 알림 > MWN > 알림 허용을 ON으로 설정하세요');
+      log('   또한 포그라운드에서 알림을 보려면 "배너" 또는 "알림"을 활성화해야 합니다');
     }
+  }
+
+  /// 로그아웃/앱 종료 시 구독을 정리한다 (FCMService 는 싱글톤이라 명시적 해제 필요).
+  Future<void> dispose() async {
+    await _tokenRefreshSub?.cancel();
+    await _onMessageSub?.cancel();
+    await _onMessageOpenedSub?.cancel();
+    _tokenRefreshSub = null;
+    _onMessageSub = null;
+    _onMessageOpenedSub = null;
   }
 }
 
 // 백그라운드 메시지 핸들러 (top-level 함수여야 함)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('백그라운드 FCM 메시지 수신:');
-  print('제목: ${message.notification?.title}');
-  print('내용: ${message.notification?.body}');
-  print('데이터: ${message.data}');
+  log('백그라운드 FCM 메시지 수신:');
+  log('제목: ${message.notification?.title}');
+  log('내용: ${message.notification?.body}');
+  log('데이터: ${message.data}');
 
   // 백그라운드에서도 알림 저장
   try {
@@ -477,6 +498,6 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
     await NotificationStorageService().saveNotification(notification);
   } catch (e) {
-    print('❌ 백그라운드 알림 저장 중 오류: $e');
+    log('❌ 백그라운드 알림 저장 중 오류: $e');
   }
 }
