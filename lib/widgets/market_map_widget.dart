@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -6,14 +8,51 @@ import '../models/market.dart';
 import '../models/weather.dart';
 import '../services/location_service.dart';
 
+/// 단순 LRU 캐시 (insertion-order LinkedHashMap 기반).
+class _LruCache<K, V> {
+  final int maxSize;
+  final LinkedHashMap<K, V> _map = LinkedHashMap<K, V>();
+
+  _LruCache(this.maxSize);
+
+  V? operator [](K key) {
+    final v = _map.remove(key);
+    if (v != null) _map[key] = v; // touch
+    return v;
+  }
+
+  void operator []=(K key, V value) {
+    _map.remove(key);
+    _map[key] = value;
+    while (_map.length > maxSize) {
+      _map.remove(_map.keys.first);
+    }
+  }
+
+  bool containsKey(K key) => _map.containsKey(key);
+  void removeWhere(bool Function(K, V) test) => _map.removeWhere(test);
+}
+
 class MarketMapWidget extends StatefulWidget {
   final List<UserMarketInterest> markets;
   final Map<int, WeatherData> weatherData;
+  final bool isWeatherLoading;
+  final String? weatherError;
+  final Future<void> Function()? onRefresh;
+  final void Function(UserMarketInterest market)? onMarketTap;
+  final VoidCallback? onAddMarket;
+  final VoidCallback? onDismissError;
 
   const MarketMapWidget({
     super.key,
     required this.markets,
     required this.weatherData,
+    this.isWeatherLoading = false,
+    this.weatherError,
+    this.onRefresh,
+    this.onMarketTap,
+    this.onAddMarket,
+    this.onDismissError,
   });
 
   @override
@@ -24,18 +63,27 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   bool _markersReady = false;
+  bool _initialCameraDone = false;
+  int? _selectedMarketId;
 
-  double _currentZoom = 11.0;
-  int _currentZoomBucket = -1; // 현재 줌 버킷 (변경 감지용)
-  bool _isRegenerating = false; // 중복 재생성 방지
+  double _currentZoom = 8.0;
+  int _currentZoomBucket = -1;
+  bool _isRegenerating = false;
+  bool _pendingRegen = false;
 
-  // 서울 시청을 기본 위치로 설정
+  // 마커 비트맵 LRU 캐시 (메모리 누수 방지)
+  static const int _bitmapCacheMaxSize = 300;
+  final _LruCache<String, BitmapDescriptor> _bitmapCache =
+      _LruCache<String, BitmapDescriptor>(_bitmapCacheMaxSize);
+
+  // 줌 이벤트 debounce 타이머 (livelock 방지 + 잦은 zoom 변경 흡수)
+  Timer? _zoomDebounce;
+
   static const CameraPosition _kDefaultPosition = CameraPosition(
-    target: LatLng(37.5665, 126.9780),
-    zoom: 11.0,
+    target: LatLng(36.5, 127.8),
+    zoom: 7.0,
   );
 
-  // 줌 레벨을 버킷으로 변환 (불필요한 재생성 방지)
   int _getZoomBucket(double zoom) {
     if (zoom <= 7) return 0;
     if (zoom <= 9) return 1;
@@ -46,18 +94,42 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     return 6;
   }
 
-  // 줌 버킷에 따른 스케일 팩터 반환
   double _getScaleFactor(int bucket) {
     switch (bucket) {
-      case 0: return 0.45; // 아주 축소
+      case 0: return 0.45;
       case 1: return 0.55;
       case 2: return 0.7;
-      case 3: return 0.85; // 기본 (zoom ~11)
+      case 3: return 0.85;
       case 4: return 1.0;
       case 5: return 1.15;
-      case 6: return 1.3;  // 아주 확대
+      case 6: return 1.3;
       default: return 0.85;
     }
+  }
+
+  // 줌 버킷별 시장명 최대 길이 (0이면 이름 숨김)
+  int _maxNameLength(int bucket) {
+    if (bucket <= 1) return 0;   // 점만 표시
+    if (bucket <= 3) return 7;   // 짧게
+    return 14;                    // 거의 전체
+  }
+
+  // 클러스터링용 그리드 셀 크기 (도 단위, 0이면 클러스터링 안 함)
+  double _clusterGridSize(int bucket) {
+    switch (bucket) {
+      case 0: return 0.30; // ~33km @ Korea lat
+      case 1: return 0.15; // ~16km
+      case 2: return 0.07; // ~8km
+      default: return 0;
+    }
+  }
+
+  String _cacheKey(UserMarketInterest market, WeatherData? weather, int bucket,
+      {required bool selected, required int maxNameLen}) {
+    final pty = weather?.pty ?? '_';
+    final sky = weather?.sky ?? '_';
+    final temp = weather?.temp != null ? weather!.temp!.round().toString() : '_';
+    return '${market.marketId}|$bucket|$pty|$sky|$temp|n$maxNameLen|s${selected ? 1 : 0}';
   }
 
   @override
@@ -70,57 +142,66 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   @override
   void didUpdateWidget(covariant MarketMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.markets != widget.markets || oldWidget.weatherData != widget.weatherData) {
+    final oldIds = oldWidget.markets.map((m) => m.marketId).toSet();
+    final newIds = widget.markets.map((m) => m.marketId).toSet();
+    if (oldIds.length != newIds.length || !oldIds.containsAll(newIds)) {
+      _bitmapCache.removeWhere((key, _) {
+        if (key.startsWith('cluster:')) return true;
+        final id = int.tryParse(key.split('|').first);
+        return id == null || !newIds.contains(id);
+      });
+    }
+
+    if (oldWidget.markets != widget.markets ||
+        oldWidget.weatherData != widget.weatherData) {
       _createMarkers();
     }
   }
 
-  // 줌 변경 시 마커 재생성
-  void _onCameraIdle() async {
-    if (_mapController == null) return;
-    final zoom = await _mapController!.getZoomLevel();
-    final newBucket = _getZoomBucket(zoom);
-
-    if (newBucket != _currentZoomBucket) {
-      _currentZoom = zoom;
-      _currentZoomBucket = newBucket;
-      _createMarkers();
-    }
+  void _onCameraIdle() {
+    _zoomDebounce?.cancel();
+    _zoomDebounce = Timer(const Duration(milliseconds: 200), () async {
+      if (!mounted || _mapController == null) return;
+      final zoom = await _mapController!.getZoomLevel();
+      final newBucket = _getZoomBucket(zoom);
+      if (newBucket != _currentZoomBucket) {
+        _currentZoom = zoom;
+        _currentZoomBucket = newBucket;
+        _createMarkers();
+      }
+    });
   }
 
-  // 날씨 상태 텍스트 반환 (모델의 기존 getter 활용 및 디버깅)
+  @override
+  void dispose() {
+    _zoomDebounce?.cancel();
+    super.dispose();
+  }
+
   String _getWeatherLabel(WeatherData weather) {
-    // 강수가 있으면 강수 형태 표시
     if (weather.pty != null && weather.pty != '0') {
       return weather.precipitationType;
     }
-    // 하늘 상태 표시 (유효한 값만)
     if (['1', '3', '4'].contains(weather.sky)) {
       return weather.skyCondition;
     }
-    // 디버깅을 위해 값이 이상하면 괄호 안에 표시 (예: "알 수 없음(null)")
     return '알 수 없음(${weather.sky ?? "null"})';
   }
 
-  // 날씨 아이콘 그리기
   void _drawWeatherIcon(Canvas canvas, Offset offset, double size, WeatherData weather) {
     final paint = Paint()..style = PaintingStyle.fill;
-    
-    // 강수 여부 확인
     bool hasPrecipitation = weather.pty != null && weather.pty != '0';
-    
+
     if (hasPrecipitation) {
-      // 구름 베이스
       paint.color = Colors.grey[300]!;
       canvas.drawCircle(offset + Offset(size * 0.3, size * 0.5), size * 0.25, paint);
       canvas.drawCircle(offset + Offset(size * 0.5, size * 0.4), size * 0.3, paint);
       canvas.drawCircle(offset + Offset(size * 0.7, size * 0.5), size * 0.25, paint);
-      
-      // 강수 형태
+
       paint.strokeWidth = size * 0.1;
       paint.strokeCap = StrokeCap.round;
-      
-      if (weather.pty == '1' || weather.pty == '4') { // 비 또는 소나기
+
+      if (weather.pty == '1' || weather.pty == '4') {
         paint.color = Colors.blue[300]!;
         paint.style = PaintingStyle.stroke;
         final path = Path();
@@ -131,34 +212,32 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
         path.moveTo(offset.dx + size * 0.7, offset.dy + size * 0.7);
         path.lineTo(offset.dx + size * 0.6, offset.dy + size * 0.9);
         canvas.drawPath(path, paint);
-      } else if (weather.pty == '3') { // 눈
+      } else if (weather.pty == '3') {
         paint.color = Colors.white;
         paint.style = PaintingStyle.fill;
         canvas.drawCircle(offset + Offset(size * 0.3, size * 0.8), size * 0.08, paint);
         canvas.drawCircle(offset + Offset(size * 0.5, size * 0.8), size * 0.08, paint);
         canvas.drawCircle(offset + Offset(size * 0.7, size * 0.8), size * 0.08, paint);
-      } else { // 비/눈 (진눈깨비)
+      } else {
         paint.color = Colors.blue[300]!;
         paint.style = PaintingStyle.stroke;
-        canvas.drawLine(Offset(offset.dx + size * 0.3, offset.dy + size * 0.7), 
+        canvas.drawLine(Offset(offset.dx + size * 0.3, offset.dy + size * 0.7),
                        Offset(offset.dx + size * 0.2, offset.dy + size * 0.9), paint);
         paint.style = PaintingStyle.fill;
         paint.color = Colors.white;
         canvas.drawCircle(offset + Offset(size * 0.6, size * 0.8), size * 0.08, paint);
       }
     } else {
-      // 하늘 상태
-      if (weather.sky == '1') { // 맑음
+      if (weather.sky == '1') {
         paint.color = Colors.orange;
         canvas.drawCircle(offset + Offset(size * 0.5, size * 0.5), size * 0.35, paint);
-        // 햇살 (선택적)
-      } else if (weather.sky == '3') { // 구름많음
-        paint.color = Colors.orange; // 해
+      } else if (weather.sky == '3') {
+        paint.color = Colors.orange;
         canvas.drawCircle(offset + Offset(size * 0.4, size * 0.4), size * 0.2, paint);
-        paint.color = Colors.grey[300]!; // 구름
+        paint.color = Colors.grey[300]!;
         canvas.drawCircle(offset + Offset(size * 0.5, size * 0.6), size * 0.25, paint);
         canvas.drawCircle(offset + Offset(size * 0.7, size * 0.55), size * 0.2, paint);
-      } else { // 흐림 (Sky 4) 또는 기타
+      } else {
         paint.color = Colors.grey[400]!;
         canvas.drawCircle(offset + Offset(size * 0.3, size * 0.5), size * 0.25, paint);
         canvas.drawCircle(offset + Offset(size * 0.5, size * 0.4), size * 0.3, paint);
@@ -167,15 +246,11 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     }
   }
 
-  // 날씨 상태에 따른 마커 배경색 반환
   Color _getMarkerColor(WeatherData? weather) {
     if (weather == null) return const Color(0xFF78909C);
-    
-    // 강수가 있으면 무조건 어두운 파랑/하늘색 계열
     if (weather.pty != null && weather.pty != '0') {
-       return const Color(0xFF455A64); // 강수 시 배경을 좀 더 어둡게 하여 아이콘 강조
+      return const Color(0xFF455A64);
     }
-
     switch (weather.sky) {
       case '1': return const Color(0xFFFF8F00);
       case '3': return const Color(0xFF00897B);
@@ -184,37 +259,48 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     return const Color(0xFF00897B);
   }
 
-  // 커스텀 마커 비트맵 생성 (스케일 팩터 적용)
+  // 커스텀 마커 비트맵 생성
   Future<BitmapDescriptor> _createCustomMarkerBitmap({
     required String name,
     required WeatherData? weather,
     required double scale,
+    required int maxNameLen,
+    required bool selected,
   }) async {
-    final String marketName = name.length > 8 ? '${name.substring(0, 7)}…' : name;
+    // 이름 길이 정책
+    String marketName;
+    if (maxNameLen == 0) {
+      marketName = '';
+    } else if (name.length > maxNameLen) {
+      marketName = '${name.substring(0, maxNameLen - 1)}…';
+    } else {
+      marketName = name;
+    }
+
     String weatherText = '';
-    
     if (weather != null) {
       final label = _getWeatherLabel(weather);
       final tempStr = weather.temp != null ? '${weather.temp!.toStringAsFixed(0)}°' : '-°';
-      // 온도계 이모지 추가
       weatherText = '$label 🌡️$tempStr';
     }
 
     final Color bgColor = _getMarkerColor(weather);
     const double pixelRatio = 2.5;
 
-    // 스케일 적용된 디멘션
-    final double baseFontSize = 13 * scale;
-    final double smallFontSize = 12 * scale;
-    final double paddingH = 12 * scale;
-    final double paddingV = 8 * scale;
-    final double arrowHeight = 8 * scale;
-    final double borderRadius = 8 * scale;
-    final double arrowHalfWidth = 6 * scale;
-    
-    // 아이콘 크기
-    final double iconSize = weather != null ? 16 * scale : 0;
-    final double iconSpacing = weather != null ? 4 * scale : 0;
+    // 사이즈 일괄 조정 노브
+    const double popupShrink = 0.6;
+    final double s = scale * popupShrink;
+
+    final double baseFontSize = 13 * s;
+    final double smallFontSize = 12 * s;
+    final double paddingH = 12 * s;
+    final double paddingV = 8 * s;
+    final double arrowHeight = 8 * s;
+    final double borderRadius = 8 * s;
+    final double arrowHalfWidth = 6 * s;
+
+    final double iconSize = weather != null ? 16 * s : 0;
+    final double iconSpacing = weather != null ? 4 * s : 0;
 
     final nameStyle = ui.TextStyle(
       color: const Color(0xFFFFFFFF),
@@ -227,29 +313,36 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       fontWeight: ui.FontWeight.w500,
     );
 
-    // 이름 텍스트 레이아웃
-    final nameParagraph = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
-      ..pushStyle(nameStyle)
-      ..addText(marketName);
-    final nameP = nameParagraph.build()..layout(const ui.ParagraphConstraints(width: 300));
+    double contentHeight = 0;
+    double maxContentWidth = 0;
 
-    double contentHeight = nameP.height;
-    double maxContentWidth = nameP.maxIntrinsicWidth;
+    ui.Paragraph? nameP;
+    if (marketName.isNotEmpty) {
+      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
+        ..pushStyle(nameStyle)
+        ..addText(marketName);
+      nameP = builder.build()..layout(const ui.ParagraphConstraints(width: 300));
+      contentHeight += nameP.height;
+      maxContentWidth = math.max(maxContentWidth, nameP.maxIntrinsicWidth);
+    }
 
-    // 날씨 텍스트 레이아웃
     ui.Paragraph? weatherP;
     if (weatherText.isNotEmpty) {
-      final weatherParagraph = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.left))
+      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.left))
         ..pushStyle(weatherStyle)
         ..addText(weatherText);
-      weatherP = weatherParagraph.build()..layout(const ui.ParagraphConstraints(width: 300));
-      
-      contentHeight += math.max(weatherP.height, iconSize) + 2 * scale;
-      
+      weatherP = builder.build()..layout(const ui.ParagraphConstraints(width: 300));
+
+      contentHeight += math.max(weatherP.height, iconSize) + (nameP != null ? 2 * s : 0);
+
       final weatherRowWidth = iconSize + iconSpacing + weatherP.maxIntrinsicWidth;
-      if (weatherRowWidth > maxContentWidth) {
-        maxContentWidth = weatherRowWidth;
-      }
+      maxContentWidth = math.max(maxContentWidth, weatherRowWidth);
+    }
+
+    // 이름·날씨 모두 빈 경우 작은 점 마커
+    if (contentHeight == 0) {
+      contentHeight = 6 * s;
+      maxContentWidth = 6 * s;
     }
 
     final double bubbleWidth = maxContentWidth + paddingH * 2;
@@ -263,10 +356,9 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
     final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, canvasWidth.toDouble(), canvasHeight.toDouble()));
     canvas.scale(pixelRatio);
 
-    // 그림자
     final shadowPaint = Paint()
       ..color = Colors.black.withValues(alpha: 0.25)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 * scale);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 * s);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(1, 1, bubbleWidth, bubbleHeight),
@@ -275,7 +367,6 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       shadowPaint,
     );
 
-    // 버블 배경
     final bgPaint = Paint()..color = bgColor;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -285,7 +376,21 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       bgPaint,
     );
 
-    // 화살표
+    // 선택된 마커는 흰색 테두리 추가
+    if (selected) {
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2 * s;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, bubbleWidth, bubbleHeight),
+          Radius.circular(borderRadius),
+        ),
+        borderPaint,
+      );
+    }
+
     final arrowPath = Path()
       ..moveTo(bubbleWidth / 2 - arrowHalfWidth, bubbleHeight)
       ..lineTo(bubbleWidth / 2, bubbleHeight + arrowHeight)
@@ -293,160 +398,304 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       ..close();
     canvas.drawPath(arrowPath, bgPaint);
 
-    // 텍스트 그리기
     double currentY = paddingV;
-    
-    // 이름 (가운데 정렬)
-    nameP.layout(ui.ParagraphConstraints(width: bubbleWidth - paddingH * 2));
-    canvas.drawParagraph(nameP, Offset(paddingH + (bubbleWidth - paddingH * 2 - nameP.maxIntrinsicWidth) / 2, currentY));
-    currentY += nameP.height + 2 * scale;
+    if (nameP != null) {
+      nameP.layout(ui.ParagraphConstraints(width: bubbleWidth - paddingH * 2));
+      canvas.drawParagraph(nameP, Offset(paddingH + (bubbleWidth - paddingH * 2 - nameP.maxIntrinsicWidth) / 2, currentY));
+      currentY += nameP.height + 2 * s;
+    }
 
-    // 날씨 (아이콘 + 텍스트, 가운데 정렬)
     if (weatherP != null && weather != null) {
       final totalRowWidth = iconSize + iconSpacing + weatherP.maxIntrinsicWidth;
       final startX = (bubbleWidth - totalRowWidth) / 2;
-      
-      // 아이콘 그리기
-      _drawWeatherIcon(canvas, Offset(startX, currentY - 2 * scale), iconSize, weather);
-      
-      // 날씨 텍스트 
-      canvas.drawParagraph(weatherP, Offset(startX + iconSize + iconSpacing, currentY + (iconSize - weatherP.height) / 2 - 2 * scale));
+      _drawWeatherIcon(canvas, Offset(startX, currentY - 2 * s), iconSize, weather);
+      canvas.drawParagraph(
+        weatherP,
+        Offset(startX + iconSize + iconSpacing, currentY + (iconSize - weatherP.height) / 2 - 2 * s),
+      );
     }
 
     final picture = recorder.endRecording();
     final img = await picture.toImage(canvasWidth, canvasHeight);
-    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    try {
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+    } finally {
+      img.dispose();
+      picture.dispose();
+    }
+  }
 
-    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+  // 클러스터 마커 비트맵 생성
+  Future<BitmapDescriptor> _createClusterBitmap(int count, Color color, double scale) async {
+    const double pixelRatio = 2.5;
+    final double s = scale * 0.85;
+    final double radius = 18 * s;
+    final double fontSize = 13 * s;
+    final double padding = 4;
+    final double canvasSize = (radius + padding) * 2 * pixelRatio;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, canvasSize, canvasSize));
+    canvas.scale(pixelRatio);
+
+    final center = Offset(radius + padding, radius + padding);
+
+    final ringPaint = Paint()..color = color.withValues(alpha: 0.25);
+    canvas.drawCircle(center, radius + 4 * s, ringPaint);
+    final ringPaint2 = Paint()..color = color.withValues(alpha: 0.45);
+    canvas.drawCircle(center, radius + 2 * s, ringPaint2);
+
+    final bgPaint = Paint()..color = color;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: ui.TextAlign.center))
+      ..pushStyle(ui.TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        fontWeight: ui.FontWeight.w700,
+      ))
+      ..addText('$count');
+    final p = builder.build()..layout(ui.ParagraphConstraints(width: radius * 2));
+    canvas.drawParagraph(
+      p,
+      Offset(center.dx - p.maxIntrinsicWidth / 2, center.dy - p.height / 2),
+    );
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(canvasSize.toInt(), canvasSize.toInt());
+    try {
+      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+      return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+    } finally {
+      img.dispose();
+      picture.dispose();
+    }
   }
 
   Future<void> _createMarkers() async {
-    if (_isRegenerating) return;
+    if (_isRegenerating) {
+      _pendingRegen = true;
+      return;
+    }
     _isRegenerating = true;
 
-    final scale = _getScaleFactor(_currentZoomBucket);
-    final newMarkers = <Marker>{};
+    try {
+      final scale = _getScaleFactor(_currentZoomBucket);
+      final bucket = _currentZoomBucket;
+      final maxNameLen = _maxNameLength(bucket);
+      final gridSize = _clusterGridSize(bucket);
+      final markets = widget.markets;
+      final weatherData = widget.weatherData;
+      final onTap = widget.onMarketTap;
+      final selectedId = _selectedMarketId;
 
-    for (var market in widget.markets) {
-      if (market.marketCoordinates?.hasCoordinates == true) {
-        final lat = market.marketCoordinates!.latitude!;
-        final lng = market.marketCoordinates!.longitude!;
-        final weather = widget.weatherData[market.marketId];
+      final items = markets
+          .where((m) => m.marketCoordinates?.hasCoordinates == true)
+          .toList();
 
-        final icon = await _createCustomMarkerBitmap(
-          name: market.marketName ?? '시장',
-          weather: weather,
-          scale: scale,
-        );
-
-        final marker = Marker(
-          markerId: MarkerId(market.marketId.toString()),
-          position: LatLng(lat, lng),
-          icon: icon,
-          anchor: const Offset(0.5, 1.0),
-          infoWindow: InfoWindow(
-            title: market.marketName,
-            snippet: market.marketLocation ?? '',
-          ),
-        );
-        newMarkers.add(marker);
+      // 그리드 셀로 그룹화 (클러스터링)
+      final groups = <String, List<UserMarketInterest>>{};
+      for (final m in items) {
+        final lat = m.marketCoordinates!.latitude!;
+        final lng = m.marketCoordinates!.longitude!;
+        String key;
+        if (gridSize > 0) {
+          key = '${(lat / gridSize).floor()}:${(lng / gridSize).floor()}';
+        } else {
+          key = 'single:${m.marketId}';
+        }
+        groups.putIfAbsent(key, () => []).add(m);
       }
-    }
 
-    _isRegenerating = false;
+      // 캐시된 마커는 즉시, 새로 만들 마커는 await
+      final cachedMarkers = <Marker>{};
+      final pendingTasks = <Future<Marker?>>[];
 
-    if (mounted) {
-      setState(() {
-        _markers = newMarkers;
-        _markersReady = true;
+      groups.forEach((key, list) {
+        if (list.length == 1) {
+          final m = list.first;
+          final lat = m.marketCoordinates!.latitude!;
+          final lng = m.marketCoordinates!.longitude!;
+          final weather = weatherData[m.marketId];
+          final isSelected = m.marketId == selectedId;
+          final cacheKey = _cacheKey(m, weather, bucket,
+              selected: isSelected, maxNameLen: maxNameLen);
+          final cached = _bitmapCache[cacheKey];
+          if (cached != null) {
+            cachedMarkers.add(_buildMarker(
+              m: m, lat: lat, lng: lng, icon: cached,
+              isSelected: isSelected, onTap: onTap,
+            ));
+          } else {
+            pendingTasks.add(() async {
+              final icon = await _createCustomMarkerBitmap(
+                name: m.marketName ?? '시장',
+                weather: weather,
+                scale: scale * (isSelected ? 1.18 : 1.0),
+                maxNameLen: maxNameLen,
+                selected: isSelected,
+              );
+              _bitmapCache[cacheKey] = icon;
+              return _buildMarker(
+                m: m, lat: lat, lng: lng, icon: icon,
+                isSelected: isSelected, onTap: onTap,
+              );
+            }());
+          }
+        } else {
+          // 클러스터
+          double sumLat = 0, sumLng = 0;
+          final colorCount = <int, int>{};
+          for (final m in list) {
+            sumLat += m.marketCoordinates!.latitude!;
+            sumLng += m.marketCoordinates!.longitude!;
+            final w = weatherData[m.marketId];
+            final c = _getMarkerColor(w).toARGB32();
+            colorCount[c] = (colorCount[c] ?? 0) + 1;
+          }
+          final centerLat = sumLat / list.length;
+          final centerLng = sumLng / list.length;
+          int domColor = 0xFF78909C;
+          int maxC = 0;
+          colorCount.forEach((c, n) {
+            if (n > maxC) {
+              maxC = n;
+              domColor = c;
+            }
+          });
+
+          final cacheKey = 'cluster:${list.length}:$bucket:$domColor';
+          final cached = _bitmapCache[cacheKey];
+          final clusterId = MarkerId('cluster:$key:${list.length}');
+          final pos = LatLng(centerLat, centerLng);
+
+          Marker buildCluster(BitmapDescriptor icon) {
+            return Marker(
+              markerId: clusterId,
+              position: pos,
+              icon: icon,
+              anchor: const Offset(0.5, 0.5),
+              consumeTapEvents: true,
+              onTap: () async {
+                final c = _mapController;
+                if (c == null) return;
+                final z = await c.getZoomLevel();
+                c.animateCamera(CameraUpdate.newCameraPosition(
+                  CameraPosition(target: pos, zoom: z + 2),
+                ));
+              },
+            );
+          }
+
+          if (cached != null) {
+            cachedMarkers.add(buildCluster(cached));
+          } else {
+            pendingTasks.add(() async {
+              final icon = await _createClusterBitmap(
+                list.length,
+                Color(domColor),
+                scale,
+              );
+              _bitmapCache[cacheKey] = icon;
+              return buildCluster(icon);
+            }());
+          }
+        }
       });
+
+      // 1단계: 캐시 hit 한 마커들 즉시 표시 (깜빡임 완화)
+      if (mounted && cachedMarkers.isNotEmpty) {
+        setState(() {
+          _markers = cachedMarkers;
+          _markersReady = true;
+        });
+      }
+
+      // 2단계: 새로 그릴 마커 await
+      if (pendingTasks.isNotEmpty) {
+        final fresh = await Future.wait(pendingTasks);
+        final freshSet = fresh.whereType<Marker>().toSet();
+        if (mounted) {
+          setState(() {
+            _markers = {...cachedMarkers, ...freshSet};
+            _markersReady = true;
+          });
+        }
+      } else if (mounted) {
+        setState(() => _markersReady = true);
+      }
+
+      // 초기 카메라 (마커가 처음 준비된 후 1회)
+      if (!_initialCameraDone && _markers.isNotEmpty && _mapController != null) {
+        _initialCameraDone = true;
+        _adjustCameraTwoStep();
+      }
+    } finally {
+      _isRegenerating = false;
+      if (_pendingRegen) {
+        _pendingRegen = false;
+        // ignore: unawaited_futures
+        _createMarkers();
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GoogleMap(
-          mapType: MapType.normal,
-          initialCameraPosition: _kDefaultPosition,
-          markers: _markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: true,
-          zoomControlsEnabled: true,
-          onCameraIdle: _onCameraIdle,
-          onMapCreated: (GoogleMapController controller) {
-            _mapController = controller;
-            // 마커 존재 여부와 상관없이 사용자 위치로 초기화 시도
-            _adjustCameraBounds();
-          },
-        ),
-        // 마커 로딩 표시
-        if (!_markersReady && widget.markets.isNotEmpty)
-          const Positioned(
-            top: 16,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Card(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 8),
-                      Text('마커 로딩 중...', style: TextStyle(fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+  Marker _buildMarker({
+    required UserMarketInterest m,
+    required double lat,
+    required double lng,
+    required BitmapDescriptor icon,
+    required bool isSelected,
+    required void Function(UserMarketInterest)? onTap,
+  }) {
+    return Marker(
+      markerId: MarkerId(m.marketId.toString()),
+      position: LatLng(lat, lng),
+      icon: icon,
+      anchor: const Offset(0.5, 1.0),
+      zIndexInt: isSelected ? 100 : 0,
+      consumeTapEvents: true,
+      onTap: onTap == null
+          ? null
+          : () {
+              setState(() => _selectedMarketId = m.marketId);
+              _createMarkers();
+              onTap(m);
+            },
     );
   }
 
-  Future<void> _adjustCameraBounds() async {
+  // 2단계 카메라 이동: 마커 전체 → 잠시 후 → 사용자 위치
+  Future<void> _adjustCameraTwoStep() async {
     if (_mapController == null) return;
 
+    // Step 1: 마커 전체 보이게 fit
+    _fitAllMarkers();
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted || _mapController == null) return;
+
+    // Step 2: 사용자 위치가 있으면 그쪽으로 이동
     try {
       final position = await LocationService().getCurrentPosition();
-
-      if (position != null) {
-        // 사용자 위치로 카메라 이동 (줌 기본 13.5)
+      if (position != null && _mapController != null) {
         _mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
             CameraPosition(
               target: LatLng(position.latitude, position.longitude),
-              zoom: 13.5,
+              zoom: 12,
             ),
           ),
         );
-      } else if (_markers.isNotEmpty) {
-        // 위치를 못 가져오고 마커가 있으면 마커 전체 보기
-        _fitAllMarkers();
       }
     } catch (e) {
-      print('카메라 이동 중 오류: $e');
-      if (_markers.isNotEmpty) {
-        _fitAllMarkers();
-      }
+      // 위치 못 가져와도 무시 (이미 fit 한 상태 유지)
     }
   }
 
   void _fitAllMarkers() {
     if (_markers.isEmpty || _mapController == null) return;
-
-    double minLat = 90.0;
-    double maxLat = -90.0;
-    double minLng = 180.0;
-    double maxLng = -180.0;
-
+    double minLat = 90.0, maxLat = -90.0, minLng = 180.0, maxLng = -180.0;
     for (var marker in _markers) {
       final lat = marker.position.latitude;
       final lng = marker.position.longitude;
@@ -455,15 +704,404 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
       if (lng < minLng) minLng = lng;
       if (lng > maxLng) maxLng = lng;
     }
-
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
           southwest: LatLng(minLat, minLng),
           northeast: LatLng(maxLat, maxLng),
         ),
-        50.0,
+        60.0,
       ),
     );
   }
+
+  Future<void> _zoomIn() async {
+    final c = _mapController;
+    if (c == null) return;
+    await c.animateCamera(CameraUpdate.zoomIn());
+  }
+
+  Future<void> _zoomOut() async {
+    final c = _mapController;
+    if (c == null) return;
+    await c.animateCamera(CameraUpdate.zoomOut());
+  }
+
+  Future<void> _goToMyLocation() async {
+    final c = _mapController;
+    if (c == null) return;
+    try {
+      final pos = await LocationService().getCurrentPosition();
+      if (pos == null) return;
+      await c.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: LatLng(pos.latitude, pos.longitude), zoom: 13.5),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isEmpty = widget.markets.isEmpty;
+
+    return Stack(
+      children: [
+        GoogleMap(
+          mapType: MapType.normal,
+          initialCameraPosition: _kDefaultPosition,
+          markers: _markers,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          style: isDark ? _kDarkMapStyle : null,
+          onCameraIdle: _onCameraIdle,
+          onTap: (_) {
+            if (_selectedMarketId != null) {
+              setState(() => _selectedMarketId = null);
+              _createMarkers();
+            }
+          },
+          onMapCreated: (GoogleMapController controller) {
+            _mapController = controller;
+            if (_markers.isNotEmpty && !_initialCameraDone) {
+              _initialCameraDone = true;
+              _adjustCameraTwoStep();
+            }
+          },
+        ),
+
+        // 빈 상태 오버레이
+        if (isEmpty)
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: false,
+              child: Center(
+                child: Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.storefront_outlined,
+                            size: 40, color: Colors.blueGrey),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '관심 시장이 없습니다',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '관심 시장을 추가하면 지도에서 한눈에 볼 수 있어요.',
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (widget.onAddMarket != null) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: widget.onAddMarket,
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('관심 시장 추가'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // 로딩 토스트
+        if (!isEmpty &&
+            ((!_markersReady && widget.markets.isNotEmpty) ||
+                widget.isWeatherLoading))
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 11,
+                        height: 11,
+                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.isWeatherLoading ? '날씨 정보 불러오는 중...' : '마커 로딩 중...',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // 에러 배너
+        if (widget.weatherError != null && !widget.isWeatherLoading)
+          Positioned(
+            top: 12,
+            left: 12,
+            right: 12,
+            child: Material(
+              elevation: 3,
+              borderRadius: BorderRadius.circular(6),
+              color: Colors.red.shade50,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline,
+                        size: 14, color: Colors.red.shade700),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.weatherError!,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.red.shade900),
+                      ),
+                    ),
+                    if (widget.onRefresh != null)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          minimumSize: const Size(0, 24),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () async {
+                          await widget.onRefresh!();
+                        },
+                        child: const Text('재시도', style: TextStyle(fontSize: 11)),
+                      ),
+                    if (widget.onDismissError != null)
+                      InkWell(
+                        onTap: widget.onDismissError,
+                        child: Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: Icon(Icons.close,
+                              size: 14, color: Colors.red.shade700),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // 범례
+        if (!isEmpty)
+          const Positioned(
+            top: 12,
+            left: 12,
+            child: _MapLegend(),
+          ),
+
+        // 우하단 컨트롤 스택
+        if (!isEmpty)
+          Positioned(
+            bottom: 20,
+            right: 12,
+            child: Column(
+              children: [
+                _MapControlButton(
+                  icon: Icons.add,
+                  tooltip: '확대',
+                  onTap: _zoomIn,
+                ),
+                const SizedBox(height: 4),
+                _MapControlButton(
+                  icon: Icons.remove,
+                  tooltip: '축소',
+                  onTap: _zoomOut,
+                ),
+                const SizedBox(height: 8),
+                _MapControlButton(
+                  icon: Icons.my_location,
+                  tooltip: '내 위치로',
+                  onTap: _goToMyLocation,
+                ),
+                if (widget.onRefresh != null) ...[
+                  const SizedBox(height: 8),
+                  _MapControlButton(
+                    icon: Icons.refresh,
+                    tooltip: '날씨 새로고침',
+                    primary: true,
+                    onTap: widget.isWeatherLoading
+                        ? null
+                        : () async {
+                            await widget.onRefresh!();
+                          },
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
+
+class _MapControlButton extends StatelessWidget {
+  final IconData icon;
+  final String? tooltip;
+  final VoidCallback? onTap;
+  final bool primary;
+
+  const _MapControlButton({
+    required this.icon,
+    this.tooltip,
+    this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    final bg = primary ? Theme.of(context).colorScheme.primary : Colors.white;
+    final fg = primary ? Colors.white : Colors.black87;
+    final btn = Material(
+      elevation: 3,
+      shape: const CircleBorder(),
+      color: bg,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(
+            icon,
+            size: 18,
+            color: disabled ? fg.withValues(alpha: 0.4) : fg,
+          ),
+        ),
+      ),
+    );
+    return tooltip != null ? Tooltip(message: tooltip!, child: btn) : btn;
+  }
+}
+
+class _MapLegend extends StatefulWidget {
+  const _MapLegend();
+
+  @override
+  State<_MapLegend> createState() => _MapLegendState();
+}
+
+class _MapLegendState extends State<_MapLegend> {
+  bool _expanded = false;
+
+  static const _items = <_LegendItem>[
+    _LegendItem(Color(0xFFFF8F00), '맑음'),
+    _LegendItem(Color(0xFF00897B), '구름많음'),
+    _LegendItem(Color(0xFF546E7A), '흐림'),
+    _LegendItem(Color(0xFF455A64), '강수'),
+    _LegendItem(Color(0xFF78909C), '날씨 없음'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(6),
+      color: Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 150),
+            alignment: Alignment.topLeft,
+            child: _expanded ? _buildExpanded() : _buildCollapsed(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsed() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: const [
+        Icon(Icons.palette_outlined, size: 12, color: Colors.black54),
+        SizedBox(width: 4),
+        Text('범례', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+
+  Widget _buildExpanded() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 3),
+          child: Text('마커 색상',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+        ),
+        for (final item in _items)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.5),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: item.color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(item.label, style: const TextStyle(fontSize: 10)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _LegendItem {
+  final Color color;
+  final String label;
+  const _LegendItem(this.color, this.label);
+}
+
+// 다크 모드 지도 스타일 (기본 다크 테마)
+const String _kDarkMapStyle = '''
+[
+  {"elementType": "geometry", "stylers": [{"color": "#212121"}]},
+  {"elementType": "labels.icon", "stylers": [{"visibility": "off"}]},
+  {"elementType": "labels.text.fill", "stylers": [{"color": "#9e9e9e"}]},
+  {"elementType": "labels.text.stroke", "stylers": [{"color": "#212121"}]},
+  {"featureType": "administrative", "elementType": "geometry", "stylers": [{"color": "#757575"}]},
+  {"featureType": "administrative.country", "elementType": "labels.text.fill", "stylers": [{"color": "#9e9e9e"}]},
+  {"featureType": "administrative.land_parcel", "stylers": [{"visibility": "off"}]},
+  {"featureType": "administrative.locality", "elementType": "labels.text.fill", "stylers": [{"color": "#bdbdbd"}]},
+  {"featureType": "poi", "elementType": "labels.text.fill", "stylers": [{"color": "#757575"}]},
+  {"featureType": "poi.park", "elementType": "geometry", "stylers": [{"color": "#1e2724"}]},
+  {"featureType": "poi.park", "elementType": "labels.text.fill", "stylers": [{"color": "#616161"}]},
+  {"featureType": "road", "elementType": "geometry.fill", "stylers": [{"color": "#2c2c2c"}]},
+  {"featureType": "road", "elementType": "labels.text.fill", "stylers": [{"color": "#8a8a8a"}]},
+  {"featureType": "road.arterial", "elementType": "geometry", "stylers": [{"color": "#373737"}]},
+  {"featureType": "road.highway", "elementType": "geometry", "stylers": [{"color": "#3c3c3c"}]},
+  {"featureType": "road.highway.controlled_access", "elementType": "geometry", "stylers": [{"color": "#4e4e4e"}]},
+  {"featureType": "road.local", "elementType": "labels.text.fill", "stylers": [{"color": "#616161"}]},
+  {"featureType": "transit", "elementType": "labels.text.fill", "stylers": [{"color": "#757575"}]},
+  {"featureType": "water", "elementType": "geometry", "stylers": [{"color": "#000000"}]},
+  {"featureType": "water", "elementType": "labels.text.fill", "stylers": [{"color": "#3d3d3d"}]}
+]
+''';
