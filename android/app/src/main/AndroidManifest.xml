@@ -45,6 +45,13 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}"/>
+
+        <!-- Android 9 (API 28+)에서 Google Maps Core Dynamite 모듈이
+             org.apache.http.ProtocolVersion 를 참조하면서 NoClassDefFoundError
+             가 발생하는 이슈 대응. https://issuetracker.google.com/issues/175040260 -->
+        <uses-library
+            android:name="org.apache.http.legacy"
+            android:required="false"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
