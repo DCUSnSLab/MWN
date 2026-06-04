@@ -47,6 +47,12 @@ class _ReportScreenState extends State<ReportScreen> {
     _loadMarkets();
   }
 
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadMarkets() async {
     try {
       final markets = await _reportRepository.getMarkets(isActive: true);

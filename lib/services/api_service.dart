@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -8,6 +9,7 @@ import '../models/weather.dart';
 import '../models/api_error.dart';
 import '../models/market.dart';
 import '../models/alert_conditions.dart';
+import '../utils/logger.dart';
 
 class ApiService {
   // 빌드 시 `--dart-define=API_BASE_URL=http://...` 로 주입한다.
@@ -106,8 +108,8 @@ class ApiService {
         final Map<String, dynamic> data = json.decode(decodedBody);
         return fromJson(data);
       } catch (e) {
-        print('❌ JSON 파싱 오류: $e');
-        print('📄 응답 본문: ${utf8.decode(response.bodyBytes)}');
+        log('❌ JSON 파싱 오류: $e');
+        log('📄 응답 본문: ${utf8.decode(response.bodyBytes)}');
         rethrow;
       }
     } else {
@@ -118,8 +120,8 @@ class ApiService {
         throw ApiException(apiError.error, response.statusCode);
       } catch (e) {
         final String rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
-        print('❌ API Error Parsing Failed: $e');
-        print('📄 Raw Error Body: $rawBody');
+        log('❌ API Error Parsing Failed: $e');
+        log('📄 Raw Error Body: $rawBody');
         throw ApiException('오류 발생 (${response.statusCode}): $rawBody', response.statusCode);
       }
     }
@@ -177,8 +179,29 @@ class ApiService {
     }
   }
 
-  // 토큰 갱신
+  // 토큰 갱신 - single-flight: 동시에 여러 요청이 401 을 만나도 refresh 는 한 번만.
+  Completer<AuthTokens>? _refreshCompleter;
+
   Future<AuthTokens> refreshToken() async {
+    // 진행 중인 refresh 가 있으면 그 결과를 공유한다.
+    final ongoing = _refreshCompleter;
+    if (ongoing != null) return ongoing.future;
+
+    final completer = Completer<AuthTokens>();
+    _refreshCompleter = completer;
+    try {
+      final tokens = await _doRefresh();
+      completer.complete(tokens);
+      return tokens;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      rethrow;
+    } finally {
+      _refreshCompleter = null;
+    }
+  }
+
+  Future<AuthTokens> _doRefresh() async {
     if (_refreshToken == null) {
       throw ApiException('리프레시 토큰이 없습니다.');
     }
@@ -225,7 +248,7 @@ class ApiService {
     if (currentWeather != null) {
       return currentWeather;
     } else {
-      print('❌ 날씨 데이터 없음: ${weatherResponse.status}');
+      log('❌ 날씨 데이터 없음: ${weatherResponse.status}');
       throw ApiException('날씨 데이터를 가져올 수 없습니다.');
     }
   }
@@ -324,11 +347,11 @@ class ApiService {
     Map<String, dynamic>? data,
   }) async {
     // 인증 상태 미리 확인
-    print('🔒 현재 로그인 상태: ${isLoggedIn}');
-    print('🔑 액세스 토큰 존재: ${_accessToken != null}');
+    log('🔒 현재 로그인 상태: ${isLoggedIn}');
+    log('🔑 액세스 토큰 존재: ${_accessToken != null}');
     if (_accessToken != null) {
-      print('🔑 토큰 길이: ${_accessToken!.length}');
-      print('🔑 토큰 앞부분: ${_accessToken!.substring(0, 20)}...');
+      log('🔑 토큰 길이: ${_accessToken!.length}');
+      log('🔑 토큰 앞부분: ${_accessToken!.substring(0, 20)}...');
     }
 
     final requestBody = <String, dynamic>{
@@ -350,8 +373,8 @@ class ApiService {
       requestBody['data'] = data;
     }
 
-    print('FCM 브로드캐스트 요청: ${json.encode(requestBody)}');
-    print('🔑 요청 헤더: ${_authHeaders}');
+    log('FCM 브로드캐스트 요청: ${json.encode(requestBody)}');
+    log('🔑 요청 헤더: ${_authHeaders}');
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/admin/fcm/send'),
@@ -359,14 +382,14 @@ class ApiService {
       body: json.encode(requestBody),
     );
 
-    print('FCM 브로드캐스트 응답: ${response.statusCode} - ${response.body}');
+    log('FCM 브로드캐스트 응답: ${response.statusCode} - ${response.body}');
 
     // 401 오류인 경우 토큰 갱신 시도
     if (response.statusCode == 401 && _refreshToken != null) {
-      print('🔄 401 오류 감지 - 토큰 갱신 시도');
+      log('🔄 401 오류 감지 - 토큰 갱신 시도');
       try {
         await refreshToken();
-        print('✅ 토큰 갱신 성공 - 재시도');
+        log('✅ 토큰 갱신 성공 - 재시도');
         
         // 갱신된 토큰으로 재시도
         final retryResponse = await http.post(
@@ -375,7 +398,7 @@ class ApiService {
           body: json.encode(requestBody),
         );
         
-        print('FCM 브로드캐스트 재시도 응답: ${retryResponse.statusCode} - ${retryResponse.body}');
+        log('FCM 브로드캐스트 재시도 응답: ${retryResponse.statusCode} - ${retryResponse.body}');
         
         if (retryResponse.statusCode != 200) {
           final Map<String, dynamic> errorData = json.decode(retryResponse.body);
@@ -384,7 +407,7 @@ class ApiService {
         }
         return; // 성공하면 여기서 종료
       } catch (refreshError) {
-        print('💥 토큰 갱신 실패: $refreshError');
+        log('💥 토큰 갱신 실패: $refreshError');
       }
     }
 
@@ -537,8 +560,8 @@ class ApiService {
     );
 
     if (response.statusCode != 200) {
-      print('⛔ 계정 삭제 실패 응답: ${response.statusCode}');
-      print('응답 내용: ${response.body}');
+      log('⛔ 계정 삭제 실패 응답: ${response.statusCode}');
+      log('응답 내용: ${response.body}');
       final Map<String, dynamic> errorData = json.decode(response.body);
       final apiError = ApiError.fromJson(errorData);
       throw ApiException(apiError.error, response.statusCode);
@@ -604,28 +627,28 @@ class ApiService {
   // 시장의 알림 조건 조회
   Future<MarketAlertConditionsResponse> getMarketAlertConditions(int marketId) async {
     final url = '$baseUrl/api/markets/$marketId/alert-conditions';
-    print('🌐 알림 조건 조회 URL: $url');
-    print('🔑 헤더: $_authHeaders');
+    log('🌐 알림 조건 조회 URL: $url');
+    log('🔑 헤더: $_authHeaders');
 
     final response = await http.get(
       Uri.parse(url),
       headers: _authHeaders,
     );
 
-    print('📡 응답 코드: ${response.statusCode}');
-    print('📄 응답 본문 (처음 200자): ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+    log('📡 응답 코드: ${response.statusCode}');
+    log('📄 응답 본문 (처음 200자): ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
 
     if (response.statusCode == 200) {
       try {
         final Map<String, dynamic> data = json.decode(response.body);
         return MarketAlertConditionsResponse.fromJson(data);
       } catch (e) {
-        print('💥 JSON 파싱 오류: $e');
-        print('📄 전체 응답: ${response.body}');
+        log('💥 JSON 파싱 오류: $e');
+        log('📄 전체 응답: ${response.body}');
         throw Exception('JSON 파싱 실패: $e');
       }
     } else {
-      print('❌ 오류 응답: ${response.body}');
+      log('❌ 오류 응답: ${response.body}');
       try {
         final Map<String, dynamic> errorData = json.decode(response.body);
         final apiError = ApiError.fromJson(errorData);
@@ -641,8 +664,8 @@ class ApiService {
     int marketId,
     Map<String, dynamic> conditions,
   ) async {
-    print('🔄 알림 조건 업데이트 시작 - 시장 ID: $marketId');
-    print('📝 업데이트 조건: ${json.encode(conditions)}');
+    log('🔄 알림 조건 업데이트 시작 - 시장 ID: $marketId');
+    log('📝 업데이트 조건: ${json.encode(conditions)}');
 
     final response = await http.put(
       Uri.parse('$baseUrl/api/admin/markets/$marketId/alert-conditions'),
@@ -650,8 +673,8 @@ class ApiService {
       body: json.encode(conditions),
     );
 
-    print('📡 응답 코드: ${response.statusCode}');
-    print('📄 응답 본문: ${response.body}');
+    log('📡 응답 코드: ${response.statusCode}');
+    log('📄 응답 본문: ${response.body}');
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
@@ -668,9 +691,9 @@ class ApiService {
     List<int> marketIds,
     Map<String, dynamic> conditions,
   ) async {
-    print('🔄 일괄 알림 조건 업데이트 시작');
-    print('🏪 대상 시장 수: ${marketIds.length}');
-    print('📝 업데이트 조건: ${json.encode(conditions)}');
+    log('🔄 일괄 알림 조건 업데이트 시작');
+    log('🏪 대상 시장 수: ${marketIds.length}');
+    log('📝 업데이트 조건: ${json.encode(conditions)}');
 
     final requestBody = {
       'market_ids': marketIds,
@@ -683,8 +706,8 @@ class ApiService {
       body: json.encode(requestBody),
     );
 
-    print('📡 응답 코드: ${response.statusCode}');
-    print('📄 응답 본문: ${response.body}');
+    log('📡 응답 코드: ${response.statusCode}');
+    log('📄 응답 본문: ${response.body}');
 
     if (response.statusCode != 200) {
       final Map<String, dynamic> errorData = json.decode(response.body);
@@ -702,10 +725,10 @@ class ApiService {
     String? customTitle,
     String? customBody,
   }) async {
-    print('🔄 날씨 테스트 알림 전송 시작');
-    print('👤 사용자 ID: $userId');
-    print('🏪 시장 ID: $marketId');
-    print('🌤️ 알림 타입: $alertType');
+    log('🔄 날씨 테스트 알림 전송 시작');
+    log('👤 사용자 ID: $userId');
+    log('🏪 시장 ID: $marketId');
+    log('🌤️ 알림 타입: $alertType');
 
     final requestBody = {
       'user_id': userId,
@@ -727,8 +750,8 @@ class ApiService {
       body: json.encode(requestBody),
     );
 
-    print('📡 응답 코드: ${response.statusCode}');
-    print('📄 응답 본문: ${response.body}');
+    log('📡 응답 코드: ${response.statusCode}');
+    log('📄 응답 본문: ${response.body}');
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
