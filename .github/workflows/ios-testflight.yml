@@ -1,0 +1,131 @@
+# iOS 빌드 + TestFlight 자동 업로드 (초안).
+#
+# 작동 조건 (GitHub Secrets):
+#   GOOGLE_SERVICE_INFO_PLIST     — ios/Runner/GoogleService-Info.plist 원문
+#   IOS_CERTIFICATE_BASE64        — Distribution 인증서 (.p12) base64
+#   IOS_CERTIFICATE_PASSWORD      — .p12 비밀번호
+#   IOS_PROVISIONING_PROFILE_B64  — AppStore 프로파일 (.mobileprovision) base64
+#   KEYCHAIN_PASSWORD             — 빌드 머신에 임시 생성할 keychain 비밀번호 (임의)
+#   APP_STORE_CONNECT_API_KEY_ID    — App Store Connect API Key (권장)
+#   APP_STORE_CONNECT_API_ISSUER_ID — App Store Connect API Issuer
+#   APP_STORE_CONNECT_API_KEY_B64   — .p8 키 base64
+#   API_BASE_URL                  — 빌드 시 주입할 백엔드 URL
+#
+# 추가 사전 조건:
+#   - Apple Developer Program 가입
+#   - App Store Connect 에 앱이 등록 (Bundle ID snslab.cu.ac.kr.mwn)
+#   - 자동 서명 대신 수동 서명을 쓰려면 ios/ExportOptions.plist 가 저장소에 존재해야 함
+#
+# 트리거:
+#   - workflow_dispatch (수동, notes 입력)
+
+name: iOS · Upload to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: '릴리즈 노트 (한 줄, TestFlight 내부 테스트용)'
+        required: false
+        default: ''
+
+jobs:
+  build-and-upload:
+    runs-on: macos-14  # Xcode 15.x
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Restore GoogleService-Info.plist
+        env:
+          PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          printf "%s" "$PLIST" > ios/Runner/GoogleService-Info.plist
+
+      - name: Create temporary keychain & import signing certificate
+        env:
+          CERT_B64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$CERT_B64" | base64 -D -o "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | xargs)
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign:,security: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null
+
+      - name: Install provisioning profile
+        env:
+          PROFILE_B64: ${{ secrets.IOS_PROVISIONING_PROFILE_B64 }}
+        run: |
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROFILE_B64" | base64 -D -o \
+            "$HOME/Library/MobileDevice/Provisioning Profiles/mwn-appstore.mobileprovision"
+
+      - name: Pod install
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build iOS (no codesign in Flutter step)
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL="${API_BASE_URL}"
+
+      - name: Archive
+        run: |
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/ios/Runner.xcarchive \
+            archive
+
+      - name: Export IPA
+        run: |
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/ios/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ios/ExportOptions.plist
+
+      - name: Upload to TestFlight (App Store Connect API)
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          KEY_B64: ${{ secrets.APP_STORE_CONNECT_API_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/private_keys
+          echo "$KEY_B64" | base64 -D -o "~/private_keys/AuthKey_${KEY_ID}.p8"
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/ios/ipa/Runner.ipa \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
+
+      - name: Upload IPA as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-ipa
+          path: build/ios/ipa/Runner.ipa
+          retention-days: 14
