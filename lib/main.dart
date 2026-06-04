@@ -10,6 +10,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'services/fcm_service.dart';
+import 'utils/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,10 +37,10 @@ void main() async {
     
     // FCM 백그라운드 메시지 핸들러 등록
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    print('Firebase 초기화 성공');
+    log('Firebase 초기화 성공');
   } catch (e) {
-    print('Firebase 초기화 실패: $e');
-    print('Firebase 없이 앱을 실행합니다.');
+    log('Firebase 초기화 실패: $e');
+    log('Firebase 없이 앱을 실행합니다.');
   }
   
   runApp(const MyApp());
@@ -119,9 +120,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
       try {
         await Future.delayed(const Duration(milliseconds: 1000));
         await FCMService().initialize();
-        print('FCM 서비스 초기화 성공');
+        log('FCM 서비스 초기화 성공');
       } catch (e) {
-        print('FCM 서비스 초기화 실패: $e');
+        log('FCM 서비스 초기화 실패: $e');
       }
     });
   }

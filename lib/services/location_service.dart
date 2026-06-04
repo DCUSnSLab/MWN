@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../utils/logger.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._internal();
@@ -52,7 +53,7 @@ class LocationService {
 
       return position;
     } catch (e) {
-      print('위치 가져오기 실패: $e');
+      log('위치 가져오기 실패: $e');
       // 위치 권한 오류 시 null 반환하여 상위에서 처리하도록 함
       return null;
     }
@@ -63,7 +64,7 @@ class LocationService {
     try {
       return await Geolocator.getLastKnownPosition();
     } catch (e) {
-      print('마지막 위치 가져오기 실패: $e');
+      log('마지막 위치 가져오기 실패: $e');
       return null;
     }
   }
@@ -95,12 +96,12 @@ class LocationService {
     // 경도가 음수인 경우 보정 (서반구 → 동반구)
     if (lon < 0) {
       lon = lon.abs(); // 절댓값으로 변환
-      print('경도 음수값 보정: ${position.longitude} → $lon');
+      log('경도 음수값 보정: ${position.longitude} → $lon');
     }
     
     // 한국 범위 밖인 경우 null 반환 (상위에서 처리)
     if (lat < 33.0 || lat > 38.5 || lon < 124.0 || lon > 132.0) {
-      print('한국 범위 밖 좌표 감지: 위도 $lat, 경도 $lon');
+      log('한국 범위 밖 좌표 감지: 위도 $lat, 경도 $lon');
       return null;
     }
     

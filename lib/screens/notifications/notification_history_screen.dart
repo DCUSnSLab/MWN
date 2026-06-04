@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/notification_item.dart';
 import '../../services/notification_storage_service.dart';
 import 'notification_map_detail_screen.dart';
+import '../../utils/logger.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
   final String? initialNotificationId;
@@ -55,7 +56,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         }
       }
     } catch (e) {
-      print('알림 불러오기 실패: $e');
+      log('알림 불러오기 실패: $e');
       setState(() {
         _isLoading = false;
       });

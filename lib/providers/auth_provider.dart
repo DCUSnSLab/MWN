@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
 import '../repositories/auth_repository.dart';
 import '../services/fcm_service.dart';
+import '../utils/logger.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthRepository _authRepository = AuthRepository();
@@ -52,7 +53,7 @@ class AuthProvider with ChangeNotifier {
         _currentUser = await _authRepository.getProfile();
       }
     } catch (e) {
-      print('Auth initialization failed: $e');
+      log('Auth initialization failed: $e');
       await _authRepository.clearTokens();
     } finally {
       _setLoading(false);
@@ -87,7 +88,7 @@ class AuthProvider with ChangeNotifier {
         _fcmService ??= FCMService();
         await _fcmService!.registerTokenAfterLogin();
       } catch (e) {
-        print('FCM 토큰 등록 실패: $e');
+        log('FCM 토큰 등록 실패: $e');
       }
       
       _setLoading(false);
@@ -104,7 +105,7 @@ class AuthProvider with ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    print('🔑 로그인 시도: $email');
+    log('🔑 로그인 시도: $email');
     _setLoading(true);
     _setError(null);
 
@@ -114,29 +115,29 @@ class AuthProvider with ChangeNotifier {
         password: password,
       );
 
-      print('🔑 API 로그인 요청 중...');
+      log('🔑 API 로그인 요청 중...');
       final response = await _authRepository.login(request);
-      print('✅ API 로그인 성공');
+      log('✅ API 로그인 성공');
 
       _currentUser = response.user;
-      print('✅ 현재 사용자 설정: ${_currentUser?.name}');
+      log('✅ 현재 사용자 설정: ${_currentUser?.name}');
 
       // 로그인 성공 시 FCM 토큰 등록
       try {
-        print('🔄 로그인 후 FCM 토큰 등록 시작');
+        log('🔄 로그인 후 FCM 토큰 등록 시작');
         _fcmService ??= FCMService();
         await _fcmService!.registerTokenAfterLogin();
-        print('✅ 로그인 후 FCM 토큰 등록 완료');
+        log('✅ 로그인 후 FCM 토큰 등록 완료');
       } catch (e) {
-        print('💥 로그인 후 FCM 토큰 등록 실패: $e');
+        log('💥 로그인 후 FCM 토큰 등록 실패: $e');
       }
       
       _setLoading(false);
       notifyListeners(); // 명시적으로 알림
-      print('✅ 로그인 완료 - isLoggedIn: $isLoggedIn');
+      log('✅ 로그인 완료 - isLoggedIn: $isLoggedIn');
       return true;
     } catch (e) {
-      print('🚨 로그인 실패: $e');
+      log('🚨 로그인 실패: $e');
       _setError(e.toString());
       _setLoading(false);
       return false;
@@ -153,7 +154,7 @@ class AuthProvider with ChangeNotifier {
       await _clearSavedCredentials();
 
     } catch (e) {
-      print('Logout error: $e');
+      log('Logout error: $e');
     } finally {
       _currentUser = null;
       _setLoading(false);
@@ -169,7 +170,7 @@ class AuthProvider with ChangeNotifier {
       _currentUser = await _authRepository.getProfile();
       notifyListeners();
     } catch (e) {
-      print('Profile refresh failed: $e');
+      log('Profile refresh failed: $e');
       // 토큰이 만료된 경우 로그아웃 처리
       if (e.toString().contains('401')) {
         await logout();
@@ -203,7 +204,7 @@ class AuthProvider with ChangeNotifier {
     try {
       return await _authRepository.verifyPassword(password);
     } catch (e) {
-      print('비밀번호 확인 실패: $e');
+      log('비밀번호 확인 실패: $e');
       rethrow;
     }
   }

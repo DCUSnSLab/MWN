@@ -6,6 +6,7 @@ import '../../services/location_service.dart';
 import '../../services/market_service.dart';
 import '../../widgets/async_view.dart';
 import 'market_search_screen.dart';
+import '../../utils/logger.dart';
 
 class WatchlistManagementScreen extends StatefulWidget {
   const WatchlistManagementScreen({super.key});
@@ -63,7 +64,7 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
         _isLoadingDistances = false;
       });
     } catch (e) {
-      print('거리 계산 오류: $e');
+      log('거리 계산 오류: $e');
       setState(() {
         _isLoadingDistances = false;
       });
