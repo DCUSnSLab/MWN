@@ -347,7 +347,7 @@ class ApiService {
     Map<String, dynamic>? data,
   }) async {
     // 인증 상태 미리 확인
-    log('🔒 현재 로그인 상태: ${isLoggedIn}');
+    log('🔒 현재 로그인 상태: $isLoggedIn');
     log('🔑 액세스 토큰 존재: ${_accessToken != null}');
     if (_accessToken != null) {
       log('🔑 토큰 길이: ${_accessToken!.length}');
@@ -374,7 +374,7 @@ class ApiService {
     }
 
     log('FCM 브로드캐스트 요청: ${json.encode(requestBody)}');
-    log('🔑 요청 헤더: ${_authHeaders}');
+    log('🔑 요청 헤더: $_authHeaders');
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/admin/fcm/send'),

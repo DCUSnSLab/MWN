@@ -5,10 +5,10 @@ import '../../utils/logger.dart';
 class AlertHistoryScreen extends StatefulWidget {
   final bool isAdmin; // 역할 구분 플래그
 
-  const AlertHistoryScreen({Key? key, this.isAdmin = false}) : super(key: key);
+  const AlertHistoryScreen({super.key, this.isAdmin = false});
 
   @override
-  _AlertHistoryScreenState createState() => _AlertHistoryScreenState();
+  State<AlertHistoryScreen> createState() => _AlertHistoryScreenState();
 }
 
 class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
@@ -154,7 +154,7 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: typeColor.withOpacity(0.2),
+          backgroundColor: typeColor.withValues(alpha: 0.2),
           child: Icon(typeIcon, color: typeColor),
         ),
         title: Text(

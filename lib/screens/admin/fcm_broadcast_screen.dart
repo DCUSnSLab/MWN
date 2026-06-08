@@ -57,7 +57,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
   final _bodyController = TextEditingController();
   
   List<User> _users = [];
-  List<User> _selectedUsers = [];
+  final List<User> _selectedUsers = [];
   bool _isLoadingUsers = false;
   bool _isSending = false;
   String? _error;
