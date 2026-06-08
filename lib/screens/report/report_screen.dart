@@ -10,13 +10,13 @@ class ReportScreen extends StatefulWidget {
   final String? preSelectedMarketName;
 
   const ReportScreen({
-    Key? key, 
-    this.preSelectedMarketId, 
-    this.preSelectedMarketName
-  }) : super(key: key);
+    super.key,
+    this.preSelectedMarketId,
+    this.preSelectedMarketName,
+  });
 
   @override
-  _ReportScreenState createState() => _ReportScreenState();
+  State<ReportScreen> createState() => _ReportScreenState();
 }
 
 class _ReportScreenState extends State<ReportScreen> {
