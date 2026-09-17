@@ -117,7 +117,7 @@ firebase appdistribution:distribute \
 
 ## 3. iOS — TestFlight
 
-> ⚠️ **iOS 빌드는 macOS + Xcode 가 필수**다. Linux/Windows 환경에선 불가능. macOS 머신에서 아래 절차를 수행한다.
+> ⚠️ **iOS 빌드는 macOS + Xcode 가 필수**다. Linux/Windows 환경에선 로컬 빌드가 불가능하다 — macOS 머신에서 3.2/3.3 을 수행하거나, **3.6 의 GitHub Actions(macOS 러너) 경로**를 쓴다.
 
 ### 3.1 최초 1회 셋업
 
@@ -189,6 +189,49 @@ xcrun altool --upload-app \
 ### 3.5 헬퍼 스크립트
 
 `scripts/build_ios.sh` — macOS 에서만 동작. Linux 에서는 안내 메시지 출력 후 종료.
+
+### 3.6 GitHub Actions 로 빌드·업로드 (macOS 없이)
+
+`.github/workflows/ios-testflight.yml` 이 GitHub 의 macOS 러너에서 아카이브 → IPA → TestFlight 업로드까지 수행한다.
+저장소가 public 이라 macOS 러너 사용량은 무료다. 로컬에 Xcode 가 없어도 되지만, **Apple 쪽 자격증명은 한 번 macOS 에서 뽑아 GitHub Secrets 에 넣어야** 한다.
+
+#### 3.6.1 시크릿 준비 (macOS 에서 1회)
+
+| Secret 이름 | 값 | 만드는 법 |
+|---|---|---|
+| `GOOGLE_SERVICE_INFO_PLIST` | `ios/Runner/GoogleService-Info.plist` 원문 | `cat ios/Runner/GoogleService-Info.plist \| pbcopy` |
+| `IOS_MAPS_API_KEY` | Google Maps iOS 키 | `ios/Flutter/Secrets.xcconfig` 의 `MAPS_API_KEY=` 뒤 값 |
+| `IOS_CERTIFICATE_BASE64` | Apple **Distribution** 인증서 `.p12` (base64) | Keychain Access → 내 인증서 → "Apple Distribution: …" 우클릭 → 내보내기(.p12, 비밀번호 설정) → `base64 -i cert.p12 \| pbcopy` |
+| `IOS_CERTIFICATE_PASSWORD` | 위 .p12 비밀번호 | — |
+| `IOS_PROVISIONING_PROFILE_B64` | App Store 배포 프로파일 `.mobileprovision` (base64) | developer.apple.com → Profiles → + → **App Store Connect** → App ID `snslab.cu.ac.kr.mwn` → 위 인증서 선택 → 다운로드 → `base64 -i *.mobileprovision \| pbcopy` |
+| `APP_STORE_CONNECT_API_KEY_ID` | API 키 ID | App Store Connect → Users and Access → **Integrations** → App Store Connect API → Team Keys → + (Access: App Manager) |
+| `APP_STORE_CONNECT_API_ISSUER_ID` | Issuer ID | 같은 화면 상단 |
+| `APP_STORE_CONNECT_API_KEY_B64` | `AuthKey_<KEY_ID>.p8` (base64) | 키 생성 직후 1회만 다운로드 가능 → `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
+| `API_BASE_URL` | (선택) 백엔드 URL | 비우면 앱 기본값 |
+
+등록: GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**, 또는 CLI:
+
+```bash
+gh secret set IOS_CERTIFICATE_BASE64 < cert.p12.b64
+gh secret set GOOGLE_SERVICE_INFO_PLIST < ios/Runner/GoogleService-Info.plist
+# … 나머지도 같은 방식
+```
+
+teamID / 프로파일 이름 / 번들 ID 는 워크플로가 `.mobileprovision` 에서 직접 뽑으므로 따로 넣지 않는다.
+프로파일이 `snslab.cu.ac.kr.mwn` 용이 아니거나 인증서가 Distribution 이 아니면 워크플로가 초반에 명확한 에러로 멈춘다.
+
+#### 3.6.2 실행
+
+1. 워크플로 파일이 **기본 브랜치(main)** 에 있어야 Actions 탭에 나타난다 (이 문서와 함께 머지).
+2. Actions → **iOS · Upload to TestFlight** → Run workflow.
+   - 처음엔 `skip_upload = true` 로 한 번 돌려 서명·IPA 생성까지만 점검하는 것을 권장 (IPA 는 artifact 로 14 일 보관).
+   - `build_number` 를 비우면 `run number + 100` 이 CFBundleVersion 이 된다. TestFlight 는 같은 버전(`pubspec.yaml` 의 `1.0.0`)에 같은 빌드 번호를 두 번 받지 않으므로, 이미 더 큰 번호를 올린 적이 있으면 그보다 큰 값을 직접 넣는다.
+3. CLI 로도 가능: `gh workflow run ios-testflight.yml -f skip_upload=true`
+4. 업로드 후 3.4 절차대로 TestFlight 탭에서 테스터에게 노출한다.
+
+#### 3.6.3 컴파일만 검증하기
+
+서명 없이 Xcode 컴파일만 확인하려면 `.github/workflows/ios-compile-check.yml` 패턴(`flutter build ios --release --no-codesign`, 시크릿 불필요)을 쓴다. 2026-09-17 iPad 레이아웃 작업 검증에 사용했고 macos-14 러너에서 통과했다.
 
 ---
 
