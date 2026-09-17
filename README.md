@@ -49,6 +49,14 @@ flutter build web -t lib/main_web.dart       # 웹 빌드 (build/web)
 > 웹 관리자는 브라우저에서 백엔드 API를 호출하므로 백엔드의 CORS 허용이 필요하며,
 > `http://` 백엔드 특성상 웹 관리자도 HTTP로 서빙해야 합니다(HTTPS는 혼합 콘텐츠로 차단됨).
 
+## 배포
+
+- 테스트 앱 배포는 Android 는 **Firebase App Distribution**, iOS 는 **TestFlight** 로 진행합니다.
+- 상세 절차: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- 매 빌드 전 점검: [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
+- 헬퍼 스크립트: `scripts/build_android.sh`, `scripts/build_ios.sh`
+- CI 초안: `.github/workflows/android-distribute.yml`, `.github/workflows/ios-testflight.yml`
+
 ## 더 보기
 
-프로젝트 구조, 백엔드 연동, 배포 관련 상세 내용은 [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md)를 참고하세요.
+프로젝트 구조, 백엔드 연동 등 상세 내용은 [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md)를 참고하세요.
