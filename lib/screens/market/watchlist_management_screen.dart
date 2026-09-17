@@ -7,6 +7,7 @@ import '../../services/market_service.dart';
 import '../../widgets/async_view.dart';
 import 'market_search_screen.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 
 class WatchlistManagementScreen extends StatefulWidget {
   const WatchlistManagementScreen({super.key});
@@ -179,14 +180,17 @@ class _WatchlistManagementScreenState extends State<WatchlistManagementScreen> {
                   await marketProvider.loadWatchlist();
                   await _loadMarketDistances();
                 },
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: marketProvider.watchlist.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final interest = marketProvider.watchlist[index];
-                    return _buildMarketItem(interest);
-                  },
+                child: TabletConstrained(
+                  maxWidth: kListMaxWidth,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: marketProvider.watchlist.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final interest = marketProvider.watchlist[index];
+                      return _buildMarketItem(interest);
+                    },
+                  ),
                 ),
               );
             },

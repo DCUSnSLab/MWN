@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../repositories/report_repository.dart';
 import '../../models/market.dart';
+import '../../utils/responsive.dart';
 
 class ReportScreen extends StatefulWidget {
   final int? preSelectedMarketId;
@@ -172,168 +173,174 @@ class _ReportScreenState extends State<ReportScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: EdgeInsets.all(16.w),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 1. 시장 선택
-                    if (widget.preSelectedMarketId != null)
-                      Container(
-                        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.store, color: Colors.grey),
-                            SizedBox(width: 12.w),
-                            Expanded(
-                              child: Text(
-                                widget.preSelectedMarketName ?? '선택된 시장',
-                                style: const TextStyle(fontSize: 16),
+              child: TabletConstrained(
+                maxWidth: kFormMaxWidth,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // 1. 시장 선택
+                      if (widget.preSelectedMarketId != null)
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.store, color: Colors.grey),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Text(
+                                  widget.preSelectedMarketName ?? '선택된 시장',
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                               ),
-                            ),
-                            const Icon(Icons.lock, size: 16, color: Colors.grey),
-                          ],
+                              const Icon(Icons.lock, size: 16, color: Colors.grey),
+                            ],
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<Market>(
+                          value: _selectedMarket,
+                          decoration: const InputDecoration(
+                            labelText: '시장 선택',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.store),
+                          ),
+                          items: _markets.map((market) {
+                            return DropdownMenuItem(
+                              value: market,
+                              child: Text(market.name),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedMarket = value;
+                            });
+                          },
+                          validator: (value) =>
+                              value == null ? '시장을 선택해주세요.' : null,
                         ),
-                      )
-                    else
-                      DropdownButtonFormField<Market>(
-                        value: _selectedMarket,
+                      SizedBox(height: 16.h),
+
+                      // 2. 신고 유형 선택
+                      DropdownButtonFormField<String>(
+                        value: _selectedReportType,
                         decoration: const InputDecoration(
-                          labelText: '시장 선택',
+                          labelText: '신고 유형',
                           border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.store),
+                          prefixIcon: Icon(Icons.category),
                         ),
-                        items: _markets.map((market) {
+                        items: _reportTypes.map((type) {
                           return DropdownMenuItem(
-                            value: market,
-                            child: Text(market.name),
+                            value: type['value'],
+                            child: Text(type['label']!),
                           );
                         }).toList(),
                         onChanged: (value) {
                           setState(() {
-                            _selectedMarket = value;
+                            _selectedReportType = value;
                           });
                         },
                         validator: (value) =>
-                            value == null ? '시장을 선택해주세요.' : null,
+                            value == null ? '신고 유형을 선택해주세요.' : null,
                       ),
-                    SizedBox(height: 16.h),
+                      SizedBox(height: 16.h),
 
-                    // 2. 신고 유형 선택
-                    DropdownButtonFormField<String>(
-                      value: _selectedReportType,
-                      decoration: const InputDecoration(
-                        labelText: '신고 유형',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.category),
-                      ),
-                      items: _reportTypes.map((type) {
-                        return DropdownMenuItem(
-                          value: type['value'],
-                          child: Text(type['label']!),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedReportType = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? '신고 유형을 선택해주세요.' : null,
-                    ),
-                    SizedBox(height: 16.h),
-
-                    // 3. 사진 첨부
-                    Text('현장 사진', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp)),
-                    SizedBox(height: 8.h),
-                    GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          builder: (context) => SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ListTile(
-                                  leading: const Icon(Icons.camera_alt),
-                                  title: const Text('카메라로 촬영'),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    _pickImage(ImageSource.camera);
-                                  },
+                      // 3. 사진 첨부
+                      Text('현장 사진', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                      SizedBox(height: 8.h),
+                      GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (context) => SafeArea(
+                              child: TabletConstrained(
+                                maxWidth: kFormMaxWidth,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.camera_alt),
+                                      title: const Text('카메라로 촬영'),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _pickImage(ImageSource.camera);
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.photo_library),
+                                      title: const Text('앨범에서 선택'),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _pickImage(ImageSource.gallery);
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                ListTile(
-                                  leading: const Icon(Icons.photo_library),
-                                  title: const Text('앨범에서 선택'),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    _pickImage(ImageSource.gallery);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        height: 200.h,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: _imageFile != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8.r),
-                                child: Image.file(_imageFile!, fit: BoxFit.cover),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
-                                  SizedBox(height: 8.h),
-                                  const Text('사진을 첨부해주세요 (선택)', style: TextStyle(color: Colors.grey)),
-                                ],
                               ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 200.h,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: _imageFile != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.add_a_photo, size: 50, color: Colors.grey),
+                                    SizedBox(height: 8.h),
+                                    const Text('사진을 첨부해주세요 (선택)', style: TextStyle(color: Colors.grey)),
+                                  ],
+                                ),
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 16.h),
+                      SizedBox(height: 16.h),
 
-                    // 4. 상세 내용
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: '상세 내용',
-                        border: OutlineInputBorder(),
-                        hintText: '문제 상황을 상세히 설명해주세요.',
-                        alignLabelWithHint: true,
+                      // 4. 상세 내용
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: '상세 내용',
+                          border: OutlineInputBorder(),
+                          hintText: '문제 상황을 상세히 설명해주세요.',
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 5,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return '상세 내용을 입력해주세요.';
+                          }
+                          return null;
+                        },
                       ),
-                      maxLines: 5,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return '상세 내용을 입력해주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-                    SizedBox(height: 24.h),
+                      SizedBox(height: 24.h),
 
-                    // 5. 제출 버튼
-                    ElevatedButton(
-                      onPressed: _submitReport,
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
-                        backgroundColor: Colors.redAccent,
+                      // 5. 제출 버튼
+                      ElevatedButton(
+                        onPressed: _submitReport,
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                        child: Text(
+                          '신고하기',
+                          style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
                       ),
-                      child: Text(
-                        '신고하기',
-                        style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

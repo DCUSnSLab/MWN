@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'password_verification_screen.dart';
+import '../../utils/responsive.dart';
 
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
@@ -99,7 +100,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             );
           }
 
-          return ListView(
+          return TabletConstrained(
+            maxWidth: kListMaxWidth,
+            child: ListView(
             padding: EdgeInsets.all(16.w),
             children: [
               Card(
@@ -171,6 +174,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
               ),
             ],
+            ),
           );
         },
       ),

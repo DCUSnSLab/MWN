@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../repositories/report_repository.dart';
 import '../../widgets/async_view.dart';
+import '../../utils/responsive.dart';
 
 class ReportListScreen extends StatefulWidget {
   const ReportListScreen({super.key});
@@ -62,29 +63,35 @@ class _ReportListScreenState extends State<ReportListScreen> {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InteractiveViewer(
-              child: Image.network(
-                imageUrl,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                  );
-                },
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InteractiveViewer(
+                child: Image.network(
+                  imageUrl,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                    );
+                  },
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('닫기'),
-            ),
-          ],
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -175,7 +182,9 @@ class _ReportListScreenState extends State<ReportListScreen> {
                 if (filteredReports.isEmpty) {
                   return const Center(child: Text('해당 조건의 신고 내역이 없습니다.'));
                 }
-                return ListView.builder(
+                return TabletConstrained(
+                  maxWidth: kListMaxWidth,
+                  child: ListView.builder(
                             itemCount: filteredReports.length,
                             itemBuilder: (context, index) {
                               final report = filteredReports[index];
@@ -248,7 +257,8 @@ class _ReportListScreenState extends State<ReportListScreen> {
                                 ),
                               );
                             },
-                          );
+                          ),
+                );
               },
             ),
           ),

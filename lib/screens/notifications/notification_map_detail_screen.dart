@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/notification_item.dart';
 import '../../models/market.dart';
 import '../../providers/market_provider.dart';
+import '../../utils/responsive.dart';
 
 class NotificationMapDetailScreen extends StatefulWidget {
   final NotificationItem notification;
@@ -203,18 +204,21 @@ class _NotificationMapDetailScreenState extends State<NotificationMapDetailScree
                     ),
                   ),
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: _relatedMarkets.length,
-                      itemBuilder: (context, index) {
-                        final market = _relatedMarkets[index];
-                        return ListTile(
-                          leading: const Icon(Icons.store_mall_directory, color: Colors.blue),
-                          title: Text(market.marketName ?? '시장'),
-                          subtitle: Text(market.marketLocation ?? ''),
-                          trailing: const Icon(Icons.my_location),
-                          onTap: () => _moveCamera(market),
-                        );
-                      },
+                    child: TabletConstrained(
+                      maxWidth: kListMaxWidth,
+                      child: ListView.builder(
+                        itemCount: _relatedMarkets.length,
+                        itemBuilder: (context, index) {
+                          final market = _relatedMarkets[index];
+                          return ListTile(
+                            leading: const Icon(Icons.store_mall_directory, color: Colors.blue),
+                            title: Text(market.marketName ?? '시장'),
+                            subtitle: Text(market.marketLocation ?? ''),
+                            trailing: const Icon(Icons.my_location),
+                            onTap: () => _moveCamera(market),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],

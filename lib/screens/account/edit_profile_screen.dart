@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -174,7 +175,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
+        child: TabletConstrained(
+          maxWidth: kFormMaxWidth,
+          child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
             Card(
@@ -415,6 +418,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

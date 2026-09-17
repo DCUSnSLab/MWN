@@ -6,6 +6,7 @@ import '../../models/weather.dart';
 import '../../providers/market_provider.dart';
 import '../../widgets/market_weather_widget.dart';
 import '../report/report_screen.dart';
+import '../../utils/responsive.dart';
 
 class MarketDetailScreen extends StatelessWidget {
   final UserMarketInterest market;
@@ -35,54 +36,57 @@ class MarketDetailScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Reusing the Weather Widget for consistency
-            MarketWeatherWidget(
-              market: market,
-              weather: effectiveWeather,
-              // Disable refresh in detail view or implement if needed
-              onRefresh: null,
-            ),
+        child: TabletConstrained(
+          maxWidth: kListMaxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Reusing the Weather Widget for consistency
+              MarketWeatherWidget(
+                market: market,
+                weather: effectiveWeather,
+                // Disable refresh in detail view or implement if needed
+                onRefresh: null,
+              ),
             
-            SizedBox(height: 24.h),
+              SizedBox(height: 24.h),
             
-            _buildInfoSection(context),
+              _buildInfoSection(context),
             
-            SizedBox(height: 32.h),
+              SizedBox(height: 32.h),
             
-            // Report Button
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ReportScreen(
-                      preSelectedMarketId: market.marketId,
-                      preSelectedMarketName: market.marketName,
+              // Report Button
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReportScreen(
+                        preSelectedMarketId: market.marketId,
+                        preSelectedMarketName: market.marketName,
+                      ),
                     ),
+                  );
+                },
+                icon: const Icon(Icons.report_problem, color: Colors.white),
+                label: Text(
+                  '이 시장에 대해 문제 신고하기',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                );
-              },
-              icon: const Icon(Icons.report_problem, color: Colors.white),
-              label: Text(
-                '이 시장에 대해 문제 신고하기',
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  padding: EdgeInsets.symmetric(vertical: 16.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: EdgeInsets.symmetric(vertical: 16.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import '../../repositories/admin_repository.dart';
 import '../../models/user.dart';
 import 'alert_history_screen.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 
 class FCMBroadcastScreen extends StatefulWidget {
   const FCMBroadcastScreen({super.key});
@@ -156,7 +157,9 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Form(
+      child: TabletConstrained(
+        maxWidth: kListMaxWidth,
+        child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -264,6 +267,7 @@ class _BroadcastToUsersTabState extends State<_BroadcastToUsersTab> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
