@@ -1,0 +1,62 @@
+# 일회성 검증용: 서명 없이 iOS 릴리즈 컴파일만 수행한다 (TestFlight 업로드 아님).
+# 리눅스 개발 호스트에는 Xcode 가 없어, iPad 레이아웃 변경이 실제 Xcode 툴체인에서
+# 컴파일되는지 GitHub 의 macOS 러너로 확인하기 위한 것이다.
+name: iOS · Compile check (no codesign)
+
+on:
+  push:
+    branches: [ci/ios-compile-check]
+  workflow_dispatch:
+
+jobs:
+  compile:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.6   # .metadata revision 9f455d2486 과 동일
+          cache: true
+
+      - name: Placeholder GoogleService-Info.plist (compile only, no real keys)
+        run: |
+          if [ ! -f ios/Runner/GoogleService-Info.plist ]; then
+            cat > ios/Runner/GoogleService-Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key><string>placeholder</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>PLIST_VERSION</key><string>1</string>
+            <key>BUNDLE_ID</key><string>snslab.cu.ac.kr.mwn</string>
+            <key>PROJECT_ID</key><string>placeholder</string>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000</string>
+            <key>IS_ADS_ENABLED</key><false/>
+            <key>IS_ANALYTICS_ENABLED</key><false/>
+            <key>IS_APPINVITE_ENABLED</key><false/>
+            <key>IS_GCM_ENABLED</key><true/>
+            <key>IS_SIGNIN_ENABLED</key><false/>
+          </dict>
+          </plist>
+          PLIST
+            echo "placeholder plist written"
+          fi
+
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+
+      - name: Pod install
+        run: cd ios && pod install --repo-update
+
+      - name: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign
+
+      - name: Report app bundle
+        run: |
+          ls -la build/ios/iphoneos/ | head
+          du -sh build/ios/iphoneos/Runner.app
