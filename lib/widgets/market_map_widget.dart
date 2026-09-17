@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/market.dart';
 import '../models/weather.dart';
 import '../services/location_service.dart';
+import '../utils/responsive.dart';
 
 /// 단순 LRU 캐시 (insertion-order LinkedHashMap 기반).
 class _LruCache<K, V> {
@@ -95,16 +96,19 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   }
 
   double _getScaleFactor(int bucket) {
+    double base;
     switch (bucket) {
-      case 0: return 0.45;
-      case 1: return 0.55;
-      case 2: return 0.7;
-      case 3: return 0.85;
-      case 4: return 1.0;
-      case 5: return 1.15;
-      case 6: return 1.3;
-      default: return 0.85;
+      case 0: base = 0.45; break;
+      case 1: base = 0.55; break;
+      case 2: base = 0.7; break;
+      case 3: base = 0.85; break;
+      case 4: base = 1.0; break;
+      case 5: base = 1.15; break;
+      case 6: base = 1.3; break;
+      default: base = 0.85;
     }
+    // 태블릿의 큰 뷰포트에서는 마커가 상대적으로 작아 보이므로 소폭 보정.
+    return isTabletDevice() ? base * 1.12 : base;
   }
 
   // 줌 버킷별 시장명 최대 길이 (0이면 이름 숨김)
@@ -745,6 +749,9 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEmpty = widget.markets.isEmpty;
+    // 태블릿에서 다른 화면(ScreenUtil로 확대됨)과 나란히 봐도 왜소해 보이지 않도록
+    // 이 위젯 자체의 오버레이 UI(토스트/배너/범례/컨트롤버튼)에 보수적인 배율을 적용.
+    final double uiScale = isTablet(context) ? 1.2 : 1.0;
 
     return Stack(
       children: [
@@ -826,19 +833,21 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
               child: Card(
                 elevation: 2,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 10 * uiScale, vertical: 5 * uiScale),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(
-                        width: 11,
-                        height: 11,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                      SizedBox(
+                        width: 11 * uiScale,
+                        height: 11 * uiScale,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 1.5 * uiScale),
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6 * uiScale),
                       Text(
                         widget.isWeatherLoading ? '날씨 정보 불러오는 중...' : '마커 로딩 중...',
-                        style: const TextStyle(fontSize: 11),
+                        style: TextStyle(fontSize: 11 * uiScale),
                       ),
                     ],
                   ),
@@ -853,46 +862,56 @@ class _MarketMapWidgetState extends State<MarketMapWidget> {
             top: 12,
             left: 12,
             right: 12,
-            child: Material(
-              elevation: 3,
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.red.shade50,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline,
-                        size: 14, color: Colors.red.shade700),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        widget.weatherError!,
-                        style: TextStyle(
-                            fontSize: 11, color: Colors.red.shade900),
-                      ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Material(
+                  elevation: 3,
+                  borderRadius: BorderRadius.circular(6),
+                  color: Colors.red.shade50,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 10 * uiScale, vertical: 6 * uiScale),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline,
+                            size: 14 * uiScale, color: Colors.red.shade700),
+                        SizedBox(width: 6 * uiScale),
+                        Expanded(
+                          child: Text(
+                            widget.weatherError!,
+                            style: TextStyle(
+                                fontSize: 11 * uiScale,
+                                color: Colors.red.shade900),
+                          ),
+                        ),
+                        if (widget.onRefresh != null)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 6 * uiScale),
+                              minimumSize: Size(0, 24 * uiScale),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () async {
+                              await widget.onRefresh!();
+                            },
+                            child: Text('재시도',
+                                style: TextStyle(fontSize: 11 * uiScale)),
+                          ),
+                        if (widget.onDismissError != null)
+                          InkWell(
+                            onTap: widget.onDismissError,
+                            child: Padding(
+                              padding: EdgeInsets.all(2 * uiScale),
+                              child: Icon(Icons.close,
+                                  size: 14 * uiScale,
+                                  color: Colors.red.shade700),
+                            ),
+                          ),
+                      ],
                     ),
-                    if (widget.onRefresh != null)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          minimumSize: const Size(0, 24),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: () async {
-                          await widget.onRefresh!();
-                        },
-                        child: const Text('재시도', style: TextStyle(fontSize: 11)),
-                      ),
-                    if (widget.onDismissError != null)
-                      InkWell(
-                        onTap: widget.onDismissError,
-                        child: Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: Icon(Icons.close,
-                              size: 14, color: Colors.red.shade700),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -969,6 +988,7 @@ class _MapControlButton extends StatelessWidget {
     final disabled = onTap == null;
     final bg = primary ? Theme.of(context).colorScheme.primary : Colors.white;
     final fg = primary ? Colors.white : Colors.black87;
+    final scale = isTablet(context) ? 1.2 : 1.0;
     final btn = Material(
       elevation: 3,
       shape: const CircleBorder(),
@@ -977,10 +997,10 @@ class _MapControlButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: EdgeInsets.all(8 * scale),
           child: Icon(
             icon,
-            size: 18,
+            size: 18 * scale,
             color: disabled ? fg.withValues(alpha: 0.4) : fg,
           ),
         ),
@@ -1010,6 +1030,7 @@ class _MapLegendState extends State<_MapLegend> {
 
   @override
   Widget build(BuildContext context) {
+    final scale = isTablet(context) ? 1.2 : 1.0;
     return Material(
       elevation: 2,
       borderRadius: BorderRadius.circular(6),
@@ -1018,54 +1039,58 @@ class _MapLegendState extends State<_MapLegend> {
         borderRadius: BorderRadius.circular(6),
         onTap: () => setState(() => _expanded = !_expanded),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+          padding: EdgeInsets.symmetric(
+              horizontal: 7 * scale, vertical: 5 * scale),
           child: AnimatedSize(
             duration: const Duration(milliseconds: 150),
             alignment: Alignment.topLeft,
-            child: _expanded ? _buildExpanded() : _buildCollapsed(),
+            child: _expanded ? _buildExpanded(scale) : _buildCollapsed(scale),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCollapsed() {
+  Widget _buildCollapsed(double scale) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: const [
-        Icon(Icons.palette_outlined, size: 12, color: Colors.black54),
-        SizedBox(width: 4),
-        Text('범례', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
+      children: [
+        Icon(Icons.palette_outlined, size: 12 * scale, color: Colors.black54),
+        SizedBox(width: 4 * scale),
+        Text('범례',
+            style: TextStyle(
+                fontSize: 10 * scale, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _buildExpanded() {
+  Widget _buildExpanded(double scale) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 3),
+        Padding(
+          padding: EdgeInsets.only(bottom: 3 * scale),
           child: Text('마커 색상',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+              style: TextStyle(
+                  fontSize: 10 * scale, fontWeight: FontWeight.w700)),
         ),
         for (final item in _items)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1.5),
+            padding: EdgeInsets.symmetric(vertical: 1.5 * scale),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 9,
-                  height: 9,
+                  width: 9 * scale,
+                  height: 9 * scale,
                   decoration: BoxDecoration(
                     color: item.color,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 5),
-                Text(item.label, style: const TextStyle(fontSize: 10)),
+                SizedBox(width: 5 * scale),
+                Text(item.label, style: TextStyle(fontSize: 10 * scale)),
               ],
             ),
           ),

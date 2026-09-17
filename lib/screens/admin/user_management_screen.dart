@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../repositories/admin_repository.dart';
 import '../../widgets/async_view.dart';
 import '../../models/user.dart';
+import '../../utils/responsive.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -137,14 +138,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadUsers,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _filteredUsers.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final user = _filteredUsers[index];
-          return _buildUserCard(user);
-        },
+      child: TabletConstrained(
+        maxWidth: kListMaxWidth,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: _filteredUsers.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final user = _filteredUsers[index];
+            return _buildUserCard(user);
+          },
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../models/market.dart';
 import '../../repositories/admin_repository.dart';
+import '../../utils/responsive.dart';
 
 class WeatherTestScreen extends StatefulWidget {
   const WeatherTestScreen({super.key});
@@ -224,7 +225,9 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
                 )
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
+                  child: TabletConstrained(
+                    maxWidth: kFormMaxWidth,
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // 안내 카드
@@ -514,6 +517,7 @@ class _WeatherTestScreenState extends State<WeatherTestScreen> {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
     );

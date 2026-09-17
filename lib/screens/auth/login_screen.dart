@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -106,7 +107,9 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: EdgeInsets.all(24.w),
             child: Form(
               key: _formKey,
-              child: Column(
+              child: TabletConstrained(
+                maxWidth: kFormMaxWidth,
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -277,6 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   SizedBox(height: 40.h),
                 ],
+                ),
               ),
             ),
           ),

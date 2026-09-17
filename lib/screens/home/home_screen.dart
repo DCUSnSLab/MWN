@@ -17,6 +17,7 @@ import '../market/market_detail_screen.dart';
 import '../../widgets/market_map_widget.dart';
 import '../../models/weather.dart';
 import '../report/report_screen.dart';
+import '../../utils/responsive.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -89,81 +90,84 @@ class _HomeScreenState extends State<HomeScreen> {
           maxChildSize: 0.9,
           expand: false,
           builder: (context, scrollController) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2.5),
+            return TabletConstrained(
+              maxWidth: kFormMaxWidth,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2.5),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '내 주변 시장 추천',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: 16),
+                        Text(
+                          '내 주변 시장 추천',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '현재 위치에서 가까운 시장을 관심 목록에 추가해보세요.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
+                        const SizedBox(height: 8),
+                        Text(
+                          '현재 위치에서 가까운 시장을 관심 목록에 추가해보세요.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: markets.length,
-                    itemBuilder: (context, index) {
-                      final market = markets[index];
-                      return ListTile(
-                        leading: const CircleAvatar(
-                          child: Icon(Icons.store),
-                        ),
-                        title: Text(market.name),
-                        subtitle: Text(market.location),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
-                          onPressed: () async {
-                            final messenger = ScaffoldMessenger.of(context);
-                            final marketProvider = context.read<MarketProvider>();
-                            try {
-                              await marketProvider.addToWatchlist(market);
-                              messenger.showSnackBar(
-                                SnackBar(content: Text('${market.name}이(가) 추가되었습니다.')),
-                              );
-                            } catch (e) {
-                              messenger.showSnackBar(
-                                SnackBar(content: Text('추가 실패: $e')),
-                              );
-                            }
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('닫기'),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: markets.length,
+                      itemBuilder: (context, index) {
+                        final market = markets[index];
+                        return ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.store),
+                          ),
+                          title: Text(market.name),
+                          subtitle: Text(market.location),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final marketProvider = context.read<MarketProvider>();
+                              try {
+                                await marketProvider.addToWatchlist(market);
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text('${market.name}이(가) 추가되었습니다.')),
+                                );
+                              } catch (e) {
+                                messenger.showSnackBar(
+                                  SnackBar(content: Text('추가 실패: $e')),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('닫기'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -189,89 +193,92 @@ class _HomeScreenState extends State<HomeScreen> {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
+            child: TabletConstrained(
+              maxWidth: kFormMaxWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Icon(Icons.storefront,
-                        color: Colors.blueGrey, size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      const Icon(Icons.storefront,
+                          color: Colors.blueGrey, size: 22),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          interest.marketName ?? '시장',
+                          style: const TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if ((interest.marketLocation ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 30),
                       child: Text(
-                        interest.marketName ?? '시장',
+                        interest.marketLocation!,
                         style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w700),
+                            fontSize: 12, color: Colors.black54),
                       ),
                     ),
                   ],
-                ),
-                if ((interest.marketLocation ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 30),
-                    child: Text(
-                      interest.marketLocation!,
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.black54),
-                    ),
+                  const SizedBox(height: 14),
+                  _PreviewWeatherRow(weather: weather),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.warning_amber_rounded, size: 18),
+                          label: const Text('신고하기'),
+                          onPressed: () {
+                            Navigator.pop(sheetCtx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ReportScreen(
+                                  preSelectedMarketId: interest.marketId,
+                                  preSelectedMarketName: interest.marketName,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.arrow_forward, size: 18),
+                          label: const Text('상세 보기'),
+                          onPressed: () {
+                            Navigator.pop(sheetCtx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    MarketDetailScreen(market: interest),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 14),
-                _PreviewWeatherRow(weather: weather),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                        label: const Text('신고하기'),
-                        onPressed: () {
-                          Navigator.pop(sheetCtx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ReportScreen(
-                                preSelectedMarketId: interest.marketId,
-                                preSelectedMarketName: interest.marketName,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.arrow_forward, size: 18),
-                        label: const Text('상세 보기'),
-                        onPressed: () {
-                          Navigator.pop(sheetCtx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  MarketDetailScreen(market: interest),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -435,25 +442,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
 
                     // 관심 시장 추가 버튼 (긴 가로 바)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const WatchlistManagementScreen(),
+                    TabletConstrained(
+                      maxWidth: kFormMaxWidth,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const WatchlistManagementScreen(),
+                              ),
+                            ).then((_) {
+                              _loadMarketData();
+                            });
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('관심 시장 추가'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.all(16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ).then((_) {
-                            _loadMarketData();
-                          });
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('관심 시장 추가'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.all(16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
@@ -524,43 +534,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         // 가까운 시장 목록 표시
                         if (marketProvider.nearbyMarkets.isNotEmpty) {
-                          return Column(
-                            children: [
-                              ...marketProvider.nearbyMarkets.asMap().entries.map((entry) {
-                                final market = entry.value;
-                                final weather = marketProvider.nearbyMarketsWeather[market.marketId];
+                          return TabletConstrained(
+                            maxWidth: kListMaxWidth,
+                            child: Column(
+                              children: [
+                                ...marketProvider.nearbyMarkets.asMap().entries.map((entry) {
+                                  final market = entry.value;
+                                  final weather = marketProvider.nearbyMarketsWeather[market.marketId];
 
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12.0),
-                                  child: MarketWeatherWidget(
-                                    market: market,
-                                    weather: weather,
-                                    onRefresh: () {
-                                      marketProvider.updateNearbyMarketsWeather(init: false); // 전체 새로고침은 비용이 크므로, 개별로 하거나 전체 갱신 호출
-                                    },
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => MarketDetailScreen(
-                                            market: market,
-                                            weather: weather,
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12.0),
+                                    child: MarketWeatherWidget(
+                                      market: market,
+                                      weather: weather,
+                                      onRefresh: () {
+                                        marketProvider.updateNearbyMarketsWeather(init: false); // 전체 새로고침은 비용이 크므로, 개별로 하거나 전체 갱신 호출
+                                      },
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => MarketDetailScreen(
+                                              market: market,
+                                              weather: weather,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              }),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }),
                               
-                              if (marketProvider.hasMoreMarkets)
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 16.0),
-                                  child: Center(
-                                    child: CircularProgressIndicator(),
+                                if (marketProvider.hasMoreMarkets)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16.0),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           );
                         }
 

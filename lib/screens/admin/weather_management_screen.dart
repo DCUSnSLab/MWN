@@ -3,6 +3,7 @@ import '../../repositories/admin_repository.dart';
 import '../../widgets/async_view.dart';
 import '../../models/market.dart';
 import '../../models/alert_conditions.dart';
+import '../../utils/responsive.dart';
 
 class WeatherManagementScreen extends StatefulWidget {
   const WeatherManagementScreen({super.key});
@@ -88,28 +89,31 @@ class _WeatherManagementScreenState extends State<WeatherManagementScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _watchlist.length,
-      itemBuilder: (context, index) {
-        final interest = _watchlist[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.orange,
-              child: Icon(Icons.store, color: Colors.white),
+    return TabletConstrained(
+      maxWidth: kListMaxWidth,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _watchlist.length,
+        itemBuilder: (context, index) {
+          final interest = _watchlist[index];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Colors.orange,
+                child: Icon(Icons.store, color: Colors.white),
+              ),
+              title: Text(
+                interest.marketName ?? '시장 ${interest.marketId}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(interest.marketLocation ?? ''),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () => _showAlertConditionsDialog(interest),
             ),
-            title: Text(
-              interest.marketName ?? '시장 ${interest.marketId}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(interest.marketLocation ?? ''),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _showAlertConditionsDialog(interest),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

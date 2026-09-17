@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/market.dart';
 import '../../providers/market_provider.dart';
+import '../../utils/responsive.dart';
 
 class MarketSearchScreen extends StatefulWidget {
   const MarketSearchScreen({super.key});
@@ -207,53 +208,56 @@ class _MarketSearchScreenState extends State<MarketSearchScreen> {
                   }
                 }
 
-                return ListView.builder(
-                  itemCount: marketProvider.searchResults.length,
-                  itemBuilder: (context, index) {
-                    final market = marketProvider.searchResults[index];
-                    final isInWatchlist = marketProvider.isInWatchlist(market.id);
+                return TabletConstrained(
+                  maxWidth: kListMaxWidth,
+                  child: ListView.builder(
+                    itemCount: marketProvider.searchResults.length,
+                    itemBuilder: (context, index) {
+                      final market = marketProvider.searchResults[index];
+                      final isInWatchlist = marketProvider.isInWatchlist(market.id);
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: ListTile(
-                        title: Text(
-                          market.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
                         ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(market.location),
-                            if (market.category != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                market.category!,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontSize: 12,
+                        child: ListTile(
+                          title: Text(
+                            market.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(market.location),
+                              if (market.category != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  market.category!,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
+                          trailing: isInWatchlist
+                              ? const Icon(
+                                  Icons.favorite,
+                                  color: Colors.red,
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: () => _addToWatchlist(market),
+                                ),
+                          onTap: isInWatchlist
+                              ? null
+                              : () => _addToWatchlist(market),
                         ),
-                        trailing: isInWatchlist
-                            ? const Icon(
-                                Icons.favorite,
-                                color: Colors.red,
-                              )
-                            : IconButton(
-                                icon: const Icon(Icons.add),
-                                onPressed: () => _addToWatchlist(market),
-                              ),
-                        onTap: isInWatchlist
-                            ? null
-                            : () => _addToWatchlist(market),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),

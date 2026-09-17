@@ -52,10 +52,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Dart 쪽(lib/main.dart)이 세로 고정(portraitUp/Down)만 허용하므로, iPad 선언도
+	     이와 일치시킨다. 4방향을 모두 열어두면 회전 애니메이션이 시작됐다 취소되는
+	     등 실제로는 도달 불가능한 상태를 선언하게 되어 리뷰/UX 상 불일치가 생긴다. -->
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>

@@ -9,6 +9,7 @@ import '../../repositories/alert_log_repository.dart';
 import '../../widgets/async_view.dart';
 import '../../models/user.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 import 'user_management_screen.dart';
 import 'fcm_broadcast_screen.dart';
 import 'weather_management_screen.dart';
@@ -168,15 +169,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatsSection(),
-            SizedBox(height: 24.h),
-            _buildMainMenuSection(),
-            SizedBox(height: 24.h),
-            _buildPendingReportsSection(),
-          ],
+        child: TabletConstrained(
+          maxWidth: kDashboardMaxWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStatsSection(),
+              SizedBox(height: 24.h),
+              _buildMainMenuSection(),
+              SizedBox(height: 24.h),
+              _buildPendingReportsSection(),
+            ],
+          ),
         ),
       ),
     );
@@ -209,7 +213,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
+          crossAxisCount: isTablet(context) ? 6 : 3,
           crossAxisSpacing: 10.w,
           mainAxisSpacing: 10.h,
           childAspectRatio: 1.05,
@@ -308,7 +312,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
+          crossAxisCount: isTablet(context) ? 4 : 2,
           crossAxisSpacing: 12.w,
           mainAxisSpacing: 12.h,
           childAspectRatio: 1.4,
@@ -572,48 +576,51 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ),
       builder: (sheetCtx) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.developer_mode,
-                          size: 18, color: Colors.deepPurple),
-                      const SizedBox(width: 8),
-                      Text(
-                        '개발자 도구',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
+          child: TabletConstrained(
+            maxWidth: kFormMaxWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.developer_mode,
+                            size: 18, color: Colors.deepPurple),
+                        const SizedBox(width: 8),
+                        Text(
+                          '개발자 도구',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Divider(height: 1),
-                Consumer<MarketProvider>(
-                  builder: (_, provider, __) {
-                    return SwitchListTile(
-                      title: const Text('디버그 모드'),
-                      subtitle: const Text('시장 카드에 ID·좌표·격자를 표시'),
-                      value: provider.isDebugMode,
-                      onChanged: (_) => provider.toggleDebugMode(),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.notifications_active_outlined,
-                      color: Colors.purple),
-                  title: const Text('날씨 알림 테스트'),
-                  subtitle: const Text('특정 사용자에게 테스트 알림 전송'),
-                  onTap: () {
-                    Navigator.pop(sheetCtx);
-                    _push(const WeatherTestScreen());
-                  },
-                ),
-                const SizedBox(height: 4),
-              ],
+                  const Divider(height: 1),
+                  Consumer<MarketProvider>(
+                    builder: (_, provider, __) {
+                      return SwitchListTile(
+                        title: const Text('디버그 모드'),
+                        subtitle: const Text('시장 카드에 ID·좌표·격자를 표시'),
+                        value: provider.isDebugMode,
+                        onChanged: (_) => provider.toggleDebugMode(),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined,
+                        color: Colors.purple),
+                    title: const Text('날씨 알림 테스트'),
+                    subtitle: const Text('특정 사용자에게 테스트 알림 전송'),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _push(const WeatherTestScreen());
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              ),
             ),
           ),
         );

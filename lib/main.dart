@@ -11,6 +11,7 @@ import 'screens/home/home_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'services/fcm_service.dart';
 import 'utils/logger.dart';
+import 'utils/responsive.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,12 +26,16 @@ void main() async {
     return true;
   };
 
-  // 화면 방향을 세로 모드로만 제한
+  // 화면 방향을 세로 모드로만 제한 (폰 한정 — 태블릿은 Info.plist 선언과
+  // 맞춰 아래에서 별도 분기하지 않고 동일하게 세로로 고정한다. 이 앱은
+  // 태블릿용 가로 레이아웃을 별도로 구현하지 않았으므로 방향을 풀면
+  // 오히려 레이아웃이 깨진다 — 대신 Info.plist 쪽의 iPad 허용 방향을
+  // 이 세로 고정과 일치하도록 좁혀뒀다(ios/Runner/Info.plist 참고).
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
   try {
     // Firebase 초기화 (선택적)
     await Firebase.initializeApp();
@@ -59,7 +64,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MarketProvider()),
       ],
       child: ScreenUtilInit(
-        designSize: const Size(375, 812), // iPhone 11 Pro 기준
+        // 폰: iPhone 11 Pro(375x812) 기준. 태블릿(shortestSide>=600)은 iPad 세로
+        // 기준(768x1024)으로 바꿔서 .w/.h/.sp/.r 스케일 배율이 1배 근처로 유지되게
+        // 한다 — 그대로 375 기준을 쓰면 iPad에서 최대 2.7배까지 커진다.
+        designSize: resolveDesignSize(),
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
@@ -160,19 +168,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
                       child: ClipOval(
                         child: Image.asset(
                           'assets/images/app_icon.png',
-                          width: 120,
-                          height: 120,
+                          width: 120.w,
+                          height: 120.w,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    const Text(
+                    SizedBox(height: 24.h),
+                    Text(
                       '날씨 알림',
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 28.sp,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black45,
                             offset: Offset(2, 2),
@@ -181,7 +189,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.h),
                     const CircularProgressIndicator(
                       color: Colors.white,
                       strokeWidth: 3,

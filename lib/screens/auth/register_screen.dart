@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/responsive.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -76,7 +77,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
-            child: Column(
+            child: TabletConstrained(
+              maxWidth: kFormMaxWidth,
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // 안내 메시지
@@ -266,6 +269,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
               ],
+              ),
             ),
           ),
         ),

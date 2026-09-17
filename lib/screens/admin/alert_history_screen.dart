@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../repositories/alert_log_repository.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 
 class AlertHistoryScreen extends StatefulWidget {
   final bool isAdmin; // 역할 구분 플래그
@@ -101,20 +102,23 @@ class _AlertHistoryScreenState extends State<AlertHistoryScreen> {
         onRefresh: _refresh,
         child: _logs.isEmpty && !_isLoading
             ? const Center(child: Text('발송된 알림이 없습니다.'))
-            : ListView.builder(
-                controller: _scrollController,
-                itemCount: _logs.length + (_hasNext ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _logs.length) {
-                    return const Center(child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: CircularProgressIndicator(),
-                    ));
-                  }
+            : TabletConstrained(
+                maxWidth: kListMaxWidth,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: _logs.length + (_hasNext ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _logs.length) {
+                      return const Center(child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      ));
+                    }
 
-                  final log = _logs[index];
-                  return _buildLogTile(log);
-                },
+                    final log = _logs[index];
+                    return _buildLogTile(log);
+                  },
+                ),
               ),
       ),
     );

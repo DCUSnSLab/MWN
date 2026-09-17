@@ -3,6 +3,7 @@ import '../../models/notification_item.dart';
 import '../../services/notification_storage_service.dart';
 import 'notification_map_detail_screen.dart';
 import '../../utils/logger.dart';
+import '../../utils/responsive.dart';
 
 class NotificationHistoryScreen extends StatefulWidget {
   final String? initialNotificationId;
@@ -148,85 +149,88 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
     return RefreshIndicator(
       onRefresh: _loadNotifications,
-      child: ListView.separated(
-        itemCount: _notifications.length,
-        separatorBuilder: (context, index) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final notification = _notifications[index];
-          return Dismissible(
-            key: Key(notification.id),
-            direction: DismissDirection.endToStart,
-            background: Container(
-              color: Colors.red,
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 16),
-              child: const Icon(
-                Icons.delete,
-                color: Colors.white,
+      child: TabletConstrained(
+        maxWidth: kListMaxWidth,
+        child: ListView.separated(
+          itemCount: _notifications.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final notification = _notifications[index];
+            return Dismissible(
+              key: Key(notification.id),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 16),
+                child: const Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            confirmDismiss: (direction) async {
-              return await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('알림 삭제'),
-                  content: const Text('이 알림을 삭제하시겠습니까?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text('취소'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: const Text(
-                        '삭제',
-                        style: TextStyle(color: Colors.red),
+              confirmDismiss: (direction) async {
+                return await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('알림 삭제'),
+                    content: const Text('이 알림을 삭제하시겠습니까?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('취소'),
                       ),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text(
+                          '삭제',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              onDismissed: (direction) {
+                _deleteNotification(notification);
+              },
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade100,
+                  child: Icon(
+                    Icons.notifications,
+                    color: Colors.blue.shade700,
+                    size: 20,
+                  ),
                 ),
-              );
-            },
-            onDismissed: (direction) {
-              _deleteNotification(notification);
-            },
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.shade100,
-                child: Icon(
-                  Icons.notifications,
-                  color: Colors.blue.shade700,
-                  size: 20,
+                title: Text(
+                  notification.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                subtitle: Text(
+                  notification.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                  ),
+                ),
+                trailing: Text(
+                  notification.getTimeAgo(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                onTap: () => _showNotificationDetail(notification),
               ),
-              title: Text(
-                notification.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(
-                notification.body,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.grey[700],
-                ),
-              ),
-              trailing: Text(
-                notification.getTimeAgo(),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              onTap: () => _showNotificationDetail(notification),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
