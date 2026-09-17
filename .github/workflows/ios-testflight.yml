@@ -37,7 +37,7 @@ env:
 jobs:
   build-and-upload:
     runs-on: macos-15   # Xcode 16.x — Flutter 3.35 는 Xcode 16 이상을 요구한다
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -108,8 +108,10 @@ jobs:
           [ "$APP_ID" = "$TEAM_ID.$BUNDLE_ID" ] \
             || { echo "::error::프로파일의 application-identifier($APP_ID)가 $TEAM_ID.$BUNDLE_ID 와 다르다. App Store 배포용 프로파일인지 확인"; exit 1; }
 
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          # Xcode 15 는 MobileDevice 경로, Xcode 16 은 Developer/Xcode/UserData 경로를 본다 — 둘 다에 설치
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"; cp "$PROFILE" "$d/$PROFILE_UUID.mobileprovision"
+          done
 
           {
             echo "PROFILE_NAME=$PROFILE_NAME"
@@ -131,6 +133,15 @@ jobs:
           CODE_SIGN_IDENTITY=Apple Distribution
           CODE_SIGN_IDENTITY[sdk=iphoneos*]=Apple Distribution
           EOF
+          # pbxproj 는 Runner 타깃 레벨에 DEVELOPMENT_TEAM 을 하드코딩하고 있어(타깃 설정 > xcconfig) 위
+          # xcconfig 의 DEVELOPMENT_TEAM 은 무시된다. 프로파일의 팀 ID 로 맞춘다 (CI 작업 트리 한정, 커밋 안 함).
+          PBX=ios/Runner.xcodeproj/project.pbxproj
+          PBX_TEAM=$(grep -m1 -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+' "$PBX" | awk '{print $3}' || true)
+          if [ -n "$PBX_TEAM" ] && [ "$PBX_TEAM" != "$TEAM_ID" ]; then
+            echo "::notice::pbxproj DEVELOPMENT_TEAM $PBX_TEAM → 프로파일 팀 $TEAM_ID 로 교체"
+          fi
+          sed -i '' "s/DEVELOPMENT_TEAM = [A-Z0-9]*;/DEVELOPMENT_TEAM = $TEAM_ID;/g" "$PBX"
+          echo "pbxproj DEVELOPMENT_TEAM entries now on $TEAM_ID: $(grep -c "DEVELOPMENT_TEAM = $TEAM_ID;" "$PBX")"
           # 푸시 알림 entitlement 를 프로파일과 일치시킨다 (배포 프로파일은 production).
           if [ "$APS_ENV" = "production" ]; then
             /usr/libexec/PlistBuddy -c 'Set :aps-environment production' ios/Runner/Runner.entitlements
@@ -138,11 +149,14 @@ jobs:
           cat ios/Runner/Runner.entitlements
 
       - name: Resolve version / build number
+        env:
+          INPUT_BN: ${{ github.event.inputs.build_number }}
         run: |
           set -euo pipefail
           VERSION_LINE=$(grep '^version:' pubspec.yaml | awk '{print $2}')   # e.g. 1.0.0+11
           BUILD_NAME=${VERSION_LINE%%+*}
-          INPUT_BN='${{ github.event.inputs.build_number }}'
+          INPUT_BN=$(printf '%s' "${INPUT_BN:-}" | tr -d '[:space:]')
+          [[ -z "$INPUT_BN" || "$INPUT_BN" =~ ^[0-9]+$ ]] || { echo "::error::build_number 는 양의 정수여야 한다: '$INPUT_BN'"; exit 1; }
           if [ -n "$INPUT_BN" ]; then BUILD_NUMBER="$INPUT_BN"; else BUILD_NUMBER=$(( GITHUB_RUN_NUMBER + 100 )); fi
           echo "build-name=$BUILD_NAME build-number=$BUILD_NUMBER"
           echo "BUILD_NAME=$BUILD_NAME" >> "$GITHUB_ENV"
@@ -153,22 +167,25 @@ jobs:
           flutter pub get
           cd ios && pod install --repo-update
 
-      - name: Flutter build (no codesign; archive step signs)
+      - name: Flutter configure (Generated.xcconfig only — the archive step compiles once)
         env:
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
           set -euo pipefail
-          ARGS=(--release --no-codesign --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER")
+          # --config-only: Generated.xcconfig(FLUTTER_BUILD_NAME/NUMBER, DART_DEFINES) 만 갱신하고 컴파일하지 않는다.
+          # 실제 컴파일은 xcodebuild archive 의 Flutter 스크립트 페이즈가 1회 수행한다 (두 번 빌드 방지).
+          ARGS=(--release --no-codesign --config-only --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER")
           if [ -n "$API_BASE_URL" ]; then ARGS+=(--dart-define="API_BASE_URL=$API_BASE_URL"); fi
           flutter build ios "${ARGS[@]}"
 
       - name: xcodebuild archive
         run: |
           set -euo pipefail
+          if command -v xcpretty >/dev/null 2>&1; then FILTER=(xcpretty --no-color); else FILTER=(cat); fi
           xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/ios/Runner.xcarchive \
-            archive | xcpretty --no-color || { echo "::error::archive 실패 — 위 로그 확인"; exit 1; }
+            archive | "${FILTER[@]}" || { echo "::error::archive 실패 — 위 로그 확인"; exit 1; }
           test -d build/ios/Runner.xcarchive
 
       - name: Export IPA
